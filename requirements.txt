@@ -2,4 +2,4 @@ streamlit
 google-genai
 gtts
 requests
-moviepy
+moviepy==1.0.3
