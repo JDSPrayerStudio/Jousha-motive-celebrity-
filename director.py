@@ -6,7 +6,7 @@ from gtts import gTTS
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
 
 def get_pexels_videos(query, count=3):
-    """Fetches vertical background videos using script-derived keywords."""
+    """Fetches vertical background videos using guaranteed high-yield search terms."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
         print("PEXELS_API_KEY is missing.")
@@ -17,8 +17,17 @@ def get_pexels_videos(query, count=3):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Use script-derived keywords, fallback to topic or generic cinematic background
-    search_term = query if query else "cinematic dark motivation"
+    # Safe, broad cinematic keywords that always have thousands of videos on Pexels
+    safe_pools = [
+        "dark cinematic background",
+        "nature landscape portrait",
+        "galaxy space aesthetic",
+        "abstract motion vertical",
+        "ocean waves drone shot"
+    ]
+    
+    # Choose query based on user input or random safe pool
+    search_term = query if query and len(query) > 2 else random.choice(safe_pools)
     url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(search_term)}&orientation=portrait&per_page=15"
     
     try:
@@ -26,9 +35,10 @@ def get_pexels_videos(query, count=3):
         if response.status_code == 200:
             data = response.json()
             videos = data.get("videos", [])
+            
+            # If specific query fails, try a safe fallback pool
             if not videos:
-                # Fallback broad search if specific script keywords yield nothing
-                fallback_url = "https://api.pexels.com/v1/videos/search?query=cinematic%20nature&orientation=portrait&per_page=10"
+                fallback_url = "https://api.pexels.com/v1/videos/search?query=dark%20cinematic&orientation=portrait&per_page=15"
                 response = requests.get(fallback_url, headers=headers)
                 if response.status_code == 200:
                     videos = response.json().get("videos", [])
@@ -42,6 +52,7 @@ def get_pexels_videos(query, count=3):
                         break
                     video_files = v.get("video_files", [])
                     if video_files:
+                        # Grab the best quality portrait file link
                         file_url = video_files[0]["link"]
                         vid_path = f"pexels_bg_{i}.mp4"
                         
@@ -50,7 +61,7 @@ def get_pexels_videos(query, count=3):
                             with open(vid_path, "wb") as f:
                                 for chunk in v_data.iter_content(chunk_size=1024):
                                     f.write(chunk)
-                            if os.path.exists(vid_path) and os.path.getsize(vid_path) > 5000:
+                            if os.path.exists(vid_path) and os.path.getsize(vid_path) > 10000:
                                 downloaded_paths.append(vid_path)
                 return downloaded_paths
     except Exception as e:
@@ -111,13 +122,8 @@ def generate_motivation_script(topic, duration_str, time_of_day):
     return response.text.strip()
 
 def create_motivation_reel(topic, duration_str, time_of_day, output_filename="motivation_reel.mp4"):
-    # Step 1: Generate the unique script first
     script_text = generate_motivation_script(topic, duration_str, time_of_day)
     
-    # Step 2: Extract core words directly from the generated script to drive Pexels video search
-    words = [w.strip(".,!?-") for w in script_text.split() if len(w) > 4]
-    script_query = " ".join(words[:3]) if words else (topic if topic else "dark cinematic")
-
     audio_path = "voiceover.mp3"
     tts = gTTS(text=script_text, lang='en', slow=False)
     tts.save(audio_path)
@@ -125,8 +131,8 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
     audio_clip = AudioFileClip(audio_path)
     target_duration = audio_clip.duration
 
-    # Step 3: Fetch matching videos using script keywords
-    clip_paths = get_pexels_videos(script_query, count=3)
+    # Use topic or fallback to dynamic visual themes
+    clip_paths = get_pexels_videos(topic, count=3)
     
     processed_clips = []
     if clip_paths:
@@ -150,6 +156,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
                 except Exception as e:
                     print(f"Error processing clip {path}: {e}")
 
+    # Ultimate safety backup if all downloads fail
     if not processed_clips:
         bg_color = (15, 15, 20)
         fallback_clip = ColorClip(size=(1080, 1920), color=bg_color).set_duration(target_duration)
@@ -177,4 +184,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         os.remove(audio_path)
         
     return output_filename, script_text
-        
+    
