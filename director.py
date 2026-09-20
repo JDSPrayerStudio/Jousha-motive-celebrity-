@@ -6,44 +6,53 @@ from gtts import gTTS
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 
 def get_pexels_videos(query, count=4):
-    """Fetches multiple unique vertical background videos from Pexels."""
+    """Fetches multiple unique vertical background videos from Pexels with bypass headers."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
         return []
     
-    headers = {"Authorization": api_key}
-    url = f"https://api.pexels.com/videos/search?query={query}&orientation=portrait&per_page=15"
+    # Browser user-agent headers to bypass Pexels edge blocking
+    headers = {
+        "Authorization": api_key,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            videos = data.get("videos", [])
-            if videos:
-                random.shuffle(videos)
-                downloaded_paths = []
-                
-                for v in videos:
-                    if len(downloaded_paths) >= count:
-                        break
-                    video_files = v.get("video_files", [])
-                    portrait_files = [f for f in video_files if f.get("width", 0) <= f.get("height", 0)]
-                    if not portrait_files:
-                        portrait_files = video_files
+    queries_to_try = [query, "cinematic abstract background", "nature landscape portrait"]
+    
+    for q in queries_to_try:
+        url = f"https://api.pexels.com/videos/search?query={q}&orientation=portrait&per_page=15"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                videos = data.get("videos", [])
+                if videos:
+                    random.shuffle(videos)
+                    downloaded_paths = []
                     
-                    if portrait_files:
-                        file_url = portrait_files[0]["link"]
-                        vid_path = f"pexels_bg_{len(downloaded_paths)}.mp4"
+                    for v in videos:
+                        if len(downloaded_paths) >= count:
+                            break
+                        video_files = v.get("video_files", [])
+                        portrait_files = [f for f in video_files if f.get("width", 0) <= f.get("height", 0)]
+                        if not portrait_files:
+                            portrait_files = video_files
                         
-                        v_data = requests.get(file_url, stream=True)
-                        if v_data.status_code == 200:
-                            with open(vid_path, "wb") as f:
-                                for chunk in v_data.iter_content(chunk_size=1024):
-                                    f.write(chunk)
-                            downloaded_paths.append(vid_path)
-                return downloaded_paths
-    except Exception as e:
-        print(f"Pexels fetch error: {e}")
+                        if portrait_files:
+                            file_url = portrait_files[0]["link"]
+                            vid_path = f"pexels_bg_{len(downloaded_paths)}.mp4"
+                            
+                            v_data = requests.get(file_url, headers=headers, stream=True)
+                            if v_data.status_code == 200:
+                                with open(vid_path, "wb") as f:
+                                    for chunk in v_data.iter_content(chunk_size=1024):
+                                        f.write(chunk)
+                                downloaded_paths.append(vid_path)
+                    if downloaded_paths:
+                        return downloaded_paths
+        except Exception as e:
+            print(f"Pexels fetch error: {e}")
+            continue
     return []
 
 def generate_motivation_script(topic, duration_str, time_of_day):
