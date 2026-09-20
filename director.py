@@ -6,7 +6,7 @@ from gtts import gTTS
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
 
 def get_pexels_videos(query, count=3):
-    """Fetches vertical background videos using guaranteed high-yield search terms."""
+    """Fetches vertical background videos and downloads them correctly without auth headers on CDN."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
         print("PEXELS_API_KEY is missing.")
@@ -17,17 +17,7 @@ def get_pexels_videos(query, count=3):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Safe, broad cinematic keywords that always have thousands of videos on Pexels
-    safe_pools = [
-        "dark cinematic background",
-        "nature landscape portrait",
-        "galaxy space aesthetic",
-        "abstract motion vertical",
-        "ocean waves drone shot"
-    ]
-    
-    # Choose query based on user input or random safe pool
-    search_term = query if query and len(query) > 2 else random.choice(safe_pools)
+    search_term = query if query and len(query) > 2 else "dark cinematic background"
     url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(search_term)}&orientation=portrait&per_page=15"
     
     try:
@@ -36,9 +26,8 @@ def get_pexels_videos(query, count=3):
             data = response.json()
             videos = data.get("videos", [])
             
-            # If specific query fails, try a safe fallback pool
             if not videos:
-                fallback_url = "https://api.pexels.com/v1/videos/search?query=dark%20cinematic&orientation=portrait&per_page=15"
+                fallback_url = "https://api.pexels.com/v1/videos/search?query=cinematic&orientation=portrait&per_page=15"
                 response = requests.get(fallback_url, headers=headers)
                 if response.status_code == 200:
                     videos = response.json().get("videos", [])
@@ -52,11 +41,11 @@ def get_pexels_videos(query, count=3):
                         break
                     video_files = v.get("video_files", [])
                     if video_files:
-                        # Grab the best quality portrait file link
                         file_url = video_files[0]["link"]
                         vid_path = f"pexels_bg_{i}.mp4"
                         
-                        v_data = requests.get(file_url, headers=headers, stream=True)
+                        # IMPORTANT: Download file WITHOUT Pexels auth headers so CDN doesn't block it
+                        v_data = requests.get(file_url, stream=True)
                         if v_data.status_code == 200:
                             with open(vid_path, "wb") as f:
                                 for chunk in v_data.iter_content(chunk_size=1024):
@@ -131,7 +120,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
     audio_clip = AudioFileClip(audio_path)
     target_duration = audio_clip.duration
 
-    # Use topic or fallback to dynamic visual themes
     clip_paths = get_pexels_videos(topic, count=3)
     
     processed_clips = []
@@ -156,7 +144,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
                 except Exception as e:
                     print(f"Error processing clip {path}: {e}")
 
-    # Ultimate safety backup if all downloads fail
     if not processed_clips:
         bg_color = (15, 15, 20)
         fallback_clip = ColorClip(size=(1080, 1920), color=bg_color).set_duration(target_duration)
