@@ -3,10 +3,10 @@ import random
 import requests
 from google import genai
 from gtts import gTTS
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
 
-def get_pexels_videos(query, count=3):
-    """Fetches vertical background videos from Pexels with a reliable fallback."""
+def get_pexels_videos(query, count=2):
+    """Fetches vertical background videos from Pexels."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
         return []
@@ -134,27 +134,11 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
                 except Exception as e:
                     print(f"Error processing clip {path}: {e}")
 
-    # Guaranteed Motion Video Fallback (downloads a stunning public stock motion loop if Pexels fails)
+    # Bulletproof Local Color Fallback (Guaranteed to work 100% without network dependency)
     if not processed_clips:
-        fallback_video_url = "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-screens-and-lights-31950-large.mp4"
-        fallback_path = "fallback_motion.mp4"
-        try:
-            r = requests.get(fallback_video_url, stream=True)
-            if r.status_code == 200:
-                with open(fallback_path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1024):
-                        f.write(chunk)
-                if os.path.exists(fallback_path):
-                    vc = VideoFileClip(fallback_path)
-                    w, h = vc.size
-                    scale = max(1080 / w, 1920 / h)
-                    vc_cropped = vc.resize(scale).crop(x_center=vc.w/2, y_center=vc.h/2, width=1080, height=1920)
-                    processed_clips.append(vc_cropped)
-        except Exception as e:
-            print(f"Fallback download error: {e}")
-
-    if not processed_clips:
-        raise RuntimeError("Could not load any background video clips.")
+        # Sleek cinematic dark navy/charcoal background color
+        fallback_clip = ColorClip(size=(1080, 1920), color=(20, 22, 30)).set_duration(target_duration)
+        processed_clips = [fallback_clip]
 
     final_video_bg = concatenate_videoclips(processed_clips, method="compose")
     
