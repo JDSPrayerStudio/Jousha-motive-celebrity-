@@ -1,18 +1,31 @@
 import os
 import random
+import time
 import requests
+import streamlit as st
 from google import genai
 from gtts import gTTS
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
 
+# Safely fetch keys from Streamlit Cloud Secrets or Environment variables
+def get_secure_key(key_name):
+    try:
+        if st.secrets and key_name in st.secrets:
+            return st.secrets[key_name]
+    except Exception:
+        pass
+    return os.environ.get(key_name)
+
+PEXELS_KEY = get_secure_key("PEXELS_API_KEY")
+GEMINI_KEY = get_secure_key("GEMINI_API_KEY")
+
 def get_pexels_videos(query, count=2):
-    """Fetches vertical background videos from Pexels."""
-    api_key = os.environ.get("PEXELS_API_KEY")
-    if not api_key:
+    """Fetches vertical background videos from Pexels using secure key."""
+    if not PEXELS_KEY:
         return []
     
     headers = {
-        "Authorization": api_key,
+        "Authorization": PEXELS_KEY,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
@@ -48,11 +61,10 @@ def get_pexels_videos(query, count=2):
     return []
 
 def generate_motivation_script(topic, duration_str, time_of_day):
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY is missing from environment variables.")
+    if not GEMINI_KEY:
+        raise ValueError("GEMINI_KEY is missing from Streamlit secrets.")
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=GEMINI_KEY)
     
     word_limits = {
         "10s": "15 to 20 words max",
@@ -94,11 +106,22 @@ def generate_motivation_script(topic, duration_str, time_of_day):
     - Make every single word count to match the target duration precisely.
     """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
-    return response.text.strip()
+    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    
+    for model_name in models_to_try:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as e:
+                print(f"Model {model_name} attempt {attempt} failed: {e}")
+                time.sleep(1)
+                
+    raise RuntimeError("Gemini models are currently experiencing high traffic. Please try clicking manufacture again in a few seconds.")
 
 def create_motivation_reel(topic, duration_str, time_of_day, output_filename="motivation_reel.mp4"):
     script_text = generate_motivation_script(topic, duration_str, time_of_day)
@@ -134,9 +157,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
                 except Exception as e:
                     print(f"Error processing clip {path}: {e}")
 
-    # Bulletproof Local Color Fallback (Guaranteed to work 100% without network dependency)
     if not processed_clips:
-        # Sleek cinematic dark navy/charcoal background color
         fallback_clip = ColorClip(size=(1080, 1920), color=(20, 22, 30)).set_duration(target_duration)
         processed_clips = [fallback_clip]
 
@@ -162,4 +183,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         os.remove(audio_path)
         
     return output_filename, script_text
-    
+        
