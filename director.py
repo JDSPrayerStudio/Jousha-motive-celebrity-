@@ -3,24 +3,23 @@ import random
 import requests
 from google import genai
 from gtts import gTTS
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
 
 def get_pexels_videos(query, count=4):
-    """Fetches multiple unique vertical background videos from Pexels with bypass headers."""
+    """Fetches multiple unique vertical background videos from Pexels with safe fallback."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
         return []
     
-    # Browser user-agent headers to bypass Pexels edge blocking
     headers = {
         "Authorization": api_key,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    queries_to_try = [query, "cinematic abstract background", "nature landscape portrait"]
+    queries_to_try = [query, "abstract", "nature", "dark background"]
     
     for q in queries_to_try:
-        url = f"https://api.pexels.com/videos/search?query={q}&orientation=portrait&per_page=15"
+        url = f"https://api.pexels.com/videos/search?query={q}&orientation=portrait&per_page=10"
         try:
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
@@ -47,7 +46,8 @@ def get_pexels_videos(query, count=4):
                                 with open(vid_path, "wb") as f:
                                     for chunk in v_data.iter_content(chunk_size=1024):
                                         f.write(chunk)
-                                downloaded_paths.append(vid_path)
+                                if os.path.exists(vid_path) and os.path.getsize(vid_path) > 1000:
+                                    downloaded_paths.append(vid_path)
                     if downloaded_paths:
                         return downloaded_paths
         except Exception as e:
@@ -118,39 +118,36 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
     audio_clip = AudioFileClip(audio_path)
     target_duration = audio_clip.duration
 
-    search_query = topic if topic else "cinematic dark motivation background"
-    clip_paths = get_pexels_videos(search_query, count=4)
+    search_query = topic if topic else "dark background"
+    clip_paths = get_pexels_videos(search_query, count=3)
     
-    if not clip_paths:
-        raise RuntimeError("Failed to fetch background videos from Pexels. Check your PEXELS_API_KEY.")
-
-    sub_duration = max(2.0, target_duration / len(clip_paths))
     processed_clips = []
-    
-    for path in clip_paths:
-        if os.path.exists(path):
-            try:
-                vc = VideoFileClip(path)
-                w, h = vc.size
-                target_w, target_h = 1080, 1920
-                
-                scale = max(target_w / w, target_h / h)
-                vc_resized = vc.resize(scale)
-                
-                vc_cropped = vc_resized.crop(
-                    x_center=vc_resized.w / 2, 
-                    y_center=vc_resized.h / 2, 
-                    width=target_w, 
-                    height=target_h
-                )
-                
-                sub = vc_cropped.subclip(0, min(sub_duration, vc_cropped.duration))
-                processed_clips.append(sub)
-            except Exception as e:
-                print(f"Error processing clip {path}: {e}")
+    if clip_paths:
+        sub_duration = max(2.0, target_duration / len(clip_paths))
+        for path in clip_paths:
+            if os.path.exists(path):
+                try:
+                    vc = VideoFileClip(path)
+                    w, h = vc.size
+                    target_w, target_h = 1080, 1920
+                    scale = max(target_w / w, target_h / h)
+                    vc_resized = vc.resize(scale)
+                    vc_cropped = vc_resized.crop(
+                        x_center=vc_resized.w / 2, 
+                        y_center=vc_resized.h / 2, 
+                        width=target_w, 
+                        height=target_h
+                    )
+                    sub = vc_cropped.subclip(0, min(sub_duration, vc_cropped.duration))
+                    processed_clips.append(sub)
+                except Exception as e:
+                    print(f"Error processing clip {path}: {e}")
 
+    # Fallback to dark cinematic background color clips if Pexels network fetch fails
     if not processed_clips:
-        raise RuntimeError("Could not process background clips.")
+        bg_color = (15, 15, 20) # Dark sleek cinematic tone
+        fallback_clip = ColorClip(size=(1080, 1920), color=bg_color).set_duration(target_duration)
+        processed_clips = [fallback_clip]
 
     final_video_bg = concatenate_videoclips(processed_clips, method="compose")
     
@@ -174,4 +171,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         os.remove(audio_path)
         
     return output_filename, script_text
-    
+                        
