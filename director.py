@@ -3,13 +3,12 @@ import random
 import requests
 from google import genai
 from gtts import gTTS
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 
 def get_pexels_videos(query, count=3):
-    """Fetches vertical background videos and downloads them correctly without auth headers on CDN."""
+    """Fetches vertical background videos from Pexels with a reliable fallback."""
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
-        print("PEXELS_API_KEY is missing.")
         return []
     
     headers = {
@@ -17,21 +16,13 @@ def get_pexels_videos(query, count=3):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    search_term = query if query and len(query) > 2 else "dark cinematic background"
-    url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(search_term)}&orientation=portrait&per_page=15"
+    url = "https://api.pexels.com/v1/videos/search?query=dark%20cinematic%20abstract&orientation=portrait&per_page=10"
     
     try:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             data = response.json()
             videos = data.get("videos", [])
-            
-            if not videos:
-                fallback_url = "https://api.pexels.com/v1/videos/search?query=cinematic&orientation=portrait&per_page=15"
-                response = requests.get(fallback_url, headers=headers)
-                if response.status_code == 200:
-                    videos = response.json().get("videos", [])
-            
             if videos:
                 random.shuffle(videos)
                 downloaded_paths = []
@@ -44,7 +35,6 @@ def get_pexels_videos(query, count=3):
                         file_url = video_files[0]["link"]
                         vid_path = f"pexels_bg_{i}.mp4"
                         
-                        # IMPORTANT: Download file WITHOUT Pexels auth headers so CDN doesn't block it
                         v_data = requests.get(file_url, stream=True)
                         if v_data.status_code == 200:
                             with open(vid_path, "wb") as f:
@@ -120,7 +110,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
     audio_clip = AudioFileClip(audio_path)
     target_duration = audio_clip.duration
 
-    clip_paths = get_pexels_videos(topic, count=3)
+    clip_paths = get_pexels_videos(topic, count=2)
     
     processed_clips = []
     if clip_paths:
@@ -144,10 +134,27 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
                 except Exception as e:
                     print(f"Error processing clip {path}: {e}")
 
+    # Guaranteed Motion Video Fallback (downloads a stunning public stock motion loop if Pexels fails)
     if not processed_clips:
-        bg_color = (15, 15, 20)
-        fallback_clip = ColorClip(size=(1080, 1920), color=bg_color).set_duration(target_duration)
-        processed_clips = [fallback_clip]
+        fallback_video_url = "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-screens-and-lights-31950-large.mp4"
+        fallback_path = "fallback_motion.mp4"
+        try:
+            r = requests.get(fallback_video_url, stream=True)
+            if r.status_code == 200:
+                with open(fallback_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1024):
+                        f.write(chunk)
+                if os.path.exists(fallback_path):
+                    vc = VideoFileClip(fallback_path)
+                    w, h = vc.size
+                    scale = max(1080 / w, 1920 / h)
+                    vc_cropped = vc.resize(scale).crop(x_center=vc.w/2, y_center=vc.h/2, width=1080, height=1920)
+                    processed_clips.append(vc_cropped)
+        except Exception as e:
+            print(f"Fallback download error: {e}")
+
+    if not processed_clips:
+        raise RuntimeError("Could not load any background video clips.")
 
     final_video_bg = concatenate_videoclips(processed_clips, method="compose")
     
