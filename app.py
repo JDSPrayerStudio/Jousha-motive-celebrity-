@@ -36,6 +36,12 @@ with st.form("reel_form"):
             index=0
         )
         
+    st.subheader("2. Audience & Timezone Settings")
+    audience_tz = st.selectbox(
+        "Target Audience Timezone:",
+        ["Nigeria (WAT - Africa/Lagos)", "USA (EST - America/New_York)", "USA (PST - America/Los_Angeles)"]
+    )
+        
     submitted = st.form_submit_button("🚀 Manufacture Facebook Reel")
 
 # Session state for output persistence
@@ -53,7 +59,8 @@ if submitted:
                 video_path, script_output = create_motivation_reel(
                     topic=topic_input,
                     duration_str=duration_choice,
-                    time_of_day=time_setting
+                    time_of_day=time_setting,
+                    audience_tz_str=audience_tz
                 )
                 st.session_state.generated_video = video_path
                 st.session_state.generated_script = script_output
@@ -75,5 +82,5 @@ if st.session_state.generated_video and os.path.exists(st.session_state.generate
             data=file,
             file_name="facebook_motivation_reel.mp4",
             mime="video/mp4"
-          )
-      
+        )
+        
