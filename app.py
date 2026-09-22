@@ -3,7 +3,7 @@ import os
 from director import create_motivation_reel
 
 # 1. Page Configuration
-st.set_page_config(page_title="Celebrate Motivation Studio", page_icon="⚡")
+st.set_page_config(page_title="Celebrity Motivation Studio", page_icon="⚡")
 
 # 2. Hide Streamlit Toolbar, GitHub Link, Menu, and Footer to lock down code access
 hide_streamlit_style = """
@@ -23,7 +23,7 @@ st.markdown(
     """
     <div style="text-align: left; padding: 10px 0;">
         <h1 style="font-size: 2.3rem; font-weight: 800; margin-bottom: 0px; line-height: 1.2;">
-            <span style="color: #FFD700;">CELEBRATE</span> 
+            <span style="color: #FFD700;">CELEBRITY</span> 
             <span style="color: #FFFFFF;">MOTIVATION STUDIO</span>
         </h1>
         <p style="font-size: 1.1rem; color: #A0AEC0; margin-top: 5px; font-weight: 500;">
