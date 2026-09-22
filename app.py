@@ -18,7 +18,7 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-st.title("⚡ Motivation Reels Studio")
+st.title("⚡CELEBRITY Motivation Studio✌️ powerd by JDS")
 st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters.")
 
 # Check API Keys
