@@ -3,7 +3,7 @@ import os
 from director import create_motivation_reel
 
 # 1. Page Configuration
-st.set_page_config(page_title="Motivation Reels Studio", page_icon="⚡")
+st.set_page_config(page_title="Celebrate Motivation Studio", page_icon="⚡")
 
 # 2. Hide Streamlit Toolbar, GitHub Link, Menu, and Footer to lock down code access
 hide_streamlit_style = """
@@ -18,7 +18,22 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-st.title("⚡CELEBRITY Motivation Studio✌️ powerd by JDS")
+# 3. Custom Standard Title & Sub-signature
+st.markdown(
+    """
+    <div style="text-align: left; padding: 10px 0;">
+        <h1 style="font-size: 2.3rem; font-weight: 800; margin-bottom: 0px; line-height: 1.2;">
+            <span style="color: #FFD700;">CELEBRATE</span> 
+            <span style="color: #FFFFFF;">MOTIVATION STUDIO</span>
+        </h1>
+        <p style="font-size: 1.1rem; color: #A0AEC0; margin-top: 5px; font-weight: 500;">
+            Powered by <span style="color: #00E676; font-weight: 700;">JDS</span>
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters.")
 
 # Check API Keys
@@ -96,5 +111,5 @@ if st.session_state.generated_video and os.path.exists(st.session_state.generate
             data=file,
             file_name="facebook_motivation_reel.mp4",
             mime="video/mp4"
-        )
-            
+    )
+        
