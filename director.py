@@ -1,11 +1,13 @@
 import os
 import random
 import time
+import json
+import asyncio
+import subprocess
 import requests
 import streamlit as st
 from google import genai
-from gtts import gTTS
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, ColorClip
+from google.genai import types
 
 # Safely fetch keys from Streamlit Cloud Secrets or Environment variables
 def get_secure_key(key_name):
@@ -19,6 +21,14 @@ def get_secure_key(key_name):
 PEXELS_KEY = get_secure_key("PEXELS_API_KEY")
 GEMINI_KEY = get_secure_key("GEMINI_API_KEY")
 
+# ==========================================
+# STYLE SETTINGS (BOLD & SAFE MARGIN CAPTIONS)
+# ==========================================
+COLOR_BASE = "white"
+FONT_SIZE = 54  
+OUTLINE_WIDTH = 7  
+OUTLINE_COLOR = "black"
+
 def get_pexels_videos(query, count=2):
     """Fetches vertical background videos from Pexels using secure key."""
     if not PEXELS_KEY:
@@ -29,7 +39,8 @@ def get_pexels_videos(query, count=2):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    url = "https://api.pexels.com/v1/videos/search?query=dark%20cinematic%20abstract&orientation=portrait&per_page=10"
+    search_query = query if query and len(query) > 2 else "dark cinematic abstract"
+    url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(search_query)}&orientation=portrait&per_page=10"
     
     try:
         response = requests.get(url, headers=headers)
@@ -60,53 +71,57 @@ def get_pexels_videos(query, count=2):
         print(f"Pexels exception: {e}")
     return []
 
-def generate_motivation_script(topic, duration_str, time_of_day):
+def generate_structured_script(topic, duration_str, time_of_day):
     if not GEMINI_KEY:
         raise ValueError("GEMINI_KEY is missing from Streamlit secrets.")
 
     client = genai.Client(api_key=GEMINI_KEY)
     
     word_limits = {
-        "10s": "15 to 20 words max",
-        "15s": "25 to 35 words max",
-        "20s": "45 to 55 words max",
-        "25s": "55 to 65 words max",
-        "30s": "70 to 85 words max",
-        "60s": "130 to 150 words max",
-        "90s": "200 to 220 words max"
+        "10s": "15 to 20 words total",
+        "15s": "25 to 35 words total",
+        "20s": "45 to 55 words total",
+        "25s": "55 to 65 words total",
+        "30s": "70 to 85 words total",
+        "60s": "130 to 150 words total",
+        "90s": "200 to 220 words total"
     }
-    target_words = word_limits.get(duration_str, "70 to 85 words max")
+    target_words = word_limits.get(duration_str, "70 to 85 words total")
     
     time_instruction = ""
     if time_of_day == "Morning":
-        import datetime
-        now = datetime.datetime.now()
-        day_name = now.strftime("%A")
-        date_str = now.strftime("%B %d, %Y")
-        time_instruction = f"Incorporate the current temporal setting naturally: Mention today is {day_name}, {date_str}, and it is morning."
+        time_instruction = "Incorporate a morning reflection context naturally."
     elif time_of_day == "Afternoon":
-        time_instruction = "Incorporate an afternoon reflection context naturally into the script."
+        time_instruction = "Incorporate an afternoon reflection context naturally."
     elif time_of_day == "Night":
-        time_instruction = "Incorporate a night or evening reflection context naturally into the script."
+        time_instruction = "Incorporate a night reflection context naturally."
     else:
-        time_instruction = "Do not mention any specific time, day, or date."
+        time_instruction = "Do not mention any specific time of day or calendar dates."
 
     random_tones = ["intense and commanding", "deeply philosophical", "high-energy and urgent", "calm, wise, and grounded", "raw and uncompromising"]
     chosen_tone = random.choice(random_tones)
 
-    prompt = f"""
-    You are an elite viral motivation speech writer. 
-    Topic: '{topic if topic else "unyielding discipline, personal growth, and overcoming obstacles"}'
-    Target Length: Exactly {target_words}.
-    Tone style: {chosen_tone}. Ensure it feels completely fresh, unique, and non-repetitive.
-    Time Context: {time_instruction}
-    
-    Rules:
-    - Return ONLY the spoken text script. No markdown formatting, no quotation marks, no narrator labels.
-    - Make every single word count to match the target duration precisely.
-    """
+    prompt = (
+        f"Topic: '{topic if topic else "unyielding discipline, personal growth, and overcoming obstacles"}'. "
+        f"Target Length: {target_words}. "
+        f"Tone style: {chosen_tone}. "
+        f"Time Context: {time_instruction} "
+        "Write a powerful viral motivation speech structured into JSON with a gripping opening 'hook' and an array of 3 to 6 short 'speech_lines' that flow seamlessly together."
+    )
 
-    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    response_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "hook": {"type": "STRING"},
+            "speech_lines": {
+                "type": "ARRAY",
+                "items": {"type": "STRING"}
+            }
+        },
+        "required": ["hook", "speech_lines"]
+    }
+
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     
     for model_name in models_to_try:
         for attempt in range(2):
@@ -114,73 +129,206 @@ def generate_motivation_script(topic, duration_str, time_of_day):
                 response = client.models.generate_content(
                     model=model_name,
                     contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=response_schema
+                    )
                 )
                 if response and response.text:
-                    return response.text.strip()
+                    return json.loads(response.text)
             except Exception as e:
                 print(f"Model {model_name} attempt {attempt} failed: {e}")
                 time.sleep(1)
                 
-    raise RuntimeError("Gemini models are currently experiencing high traffic. Please try clicking manufacture again in a few seconds.")
+    raise RuntimeError("Gemini models are currently experiencing high traffic. Please try again.")
+
+def clean_text_formatting(text):
+    import re
+    text = re.sub(r'[\r\t]+', ' ', text)
+    text = re.sub(r'[^\w\s.,!?;:\-\n\'\"]+', '', text)
+    return text.strip()
+
+def wrap_horizontal_safe(text, max_chars=22):
+    words = text.split(' ')
+    lines_out = []
+    current_line = ""
+    for word in words:
+        if len(current_line + " " + word) <= max_chars:
+            current_line = (current_line + " " + word).strip()
+        else:
+            if current_line:
+                lines_out.append(current_line)
+            current_line = word
+    if current_line:
+        lines_out.append(current_line)
+    return "\n".join(lines_out)
+
+def get_audio_duration(filepath):
+    res = subprocess.run([
+        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1", filepath
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    return float(res.stdout.strip()) if res.stdout.strip() else 2.0
+
+async def generate_phrase_audio(text_content, filename):
+    import edge_tts
+    success = False
+    for _ in range(3):
+        try:
+            comm = edge_tts.Communicate(text_content, "en-US-ChristopherNeural", rate="-2%", pitch="-2Hz")
+            await comm.save(filename)
+            if os.path.exists(filename) and os.path.getsize(filename) > 50:
+                success = True
+                break
+        except Exception:
+            await asyncio.sleep(1)
+    if not success:
+        # Fallback to gTTS if edge-tts network hiccups
+        from gtts import gTTS
+        tts = gTTS(text=text_content, lang='en', slow=False)
+        tts.save(filename)
 
 def create_motivation_reel(topic, duration_str, time_of_day, output_filename="motivation_reel.mp4"):
-    script_text = generate_motivation_script(topic, duration_str, time_of_day)
+    script_data = generate_structured_script(topic, duration_str, time_of_day)
     
-    audio_path = "voiceover.mp3"
-    tts = gTTS(text=script_text, lang='en', slow=False)
-    tts.save(audio_path)
+    hook_text = clean_text_formatting(script_data['hook'])
+    speech_lines = [clean_text_formatting(line) for line in script_data['speech_lines']]
+    all_phrases = [hook_text] + speech_lines
     
-    audio_clip = AudioFileClip(audio_path)
-    target_duration = audio_clip.duration
+    full_script_text = " ".join(all_phrases)
 
-    clip_paths = get_pexels_videos(topic, count=2)
+    # Generate individual phrase audio tracks asynchronously
+    async def build_audio_tracks():
+        for idx, text in enumerate(all_phrases):
+            await generate_phrase_audio(text, f"phrase_audio_{idx}.mp3")
+
+    asyncio.run(build_audio_tracks())
+
+    # Build timed segments
+    timed_segments = []
+    current_time = 0.0
+    for idx, phrase in enumerate(all_phrases):
+        audio_file = f"phrase_audio_{idx}.mp3"
+        dur = get_audio_duration(audio_file)
+        timed_segments.append({
+            "phrase": phrase,
+            "audio": audio_file,
+            "start": current_time,
+            "end": current_time + dur,
+            "duration": dur
+        })
+        current_time += dur
+
+    total_video_duration = current_time + 0.2
+
+    # Concatenate audio files into final voice track
+    audio_concat_txt = "audio_concat.txt"
+    with open(audio_concat_txt, "w") as f_a:
+        for seg in timed_segments:
+            f_a.write(f"file '{seg['audio']}'\n")
+
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+        "-i", audio_concat_txt, "-c", "copy", "final_voice_track.mp3"
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # Fetch Pexels background clips
+    clip_paths = get_pexels_videos(topic, count=3)
     
-    processed_clips = []
-    if clip_paths:
-        sub_duration = max(2.0, target_duration / len(clip_paths))
-        for path in clip_paths:
-            if os.path.exists(path):
-                try:
-                    vc = VideoFileClip(path)
-                    w, h = vc.size
-                    target_w, target_h = 1080, 1920
-                    scale = max(target_w / w, target_h / h)
-                    vc_resized = vc.resize(scale)
-                    vc_cropped = vc_resized.crop(
-                        x_center=vc_resized.w / 2, 
-                        y_center=vc_resized.h / 2, 
-                        width=target_w, 
-                        height=target_h
-                    )
-                    sub = vc_cropped.subclip(0, min(sub_duration, vc_cropped.duration))
-                    processed_clips.append(sub)
-                except Exception as e:
-                    print(f"Error processing clip {path}: {e}")
-
-    if not processed_clips:
-        fallback_clip = ColorClip(size=(1080, 1920), color=(20, 22, 30)).set_duration(target_duration)
-        processed_clips = [fallback_clip]
-
-    final_video_bg = concatenate_videoclips(processed_clips, method="compose")
-    
-    if final_video_bg.duration < target_duration:
-        loops = int(target_duration / final_video_bg.duration) + 1
-        final_video_bg = concatenate_videoclips([final_video_bg] * loops).subclip(0, target_duration)
-    else:
-        final_video_bg = final_video_bg.subclip(0, target_duration)
-
-    final_video = final_video_bg.set_audio(audio_clip)
-
-    final_video.write_videofile(
-        output_filename,
-        fps=24,
-        codec="libx264",
-        audio_codec="libmp3lame",
-        preset="medium"
+    master_bg_processed = "master_bg_unique.mp4"
+    filter_fx = (
+        "scale=1300:2300:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,"
+        "fps=30,"
+        "eq=brightness=0.03:contrast=1.12:saturation=1.15,"
+        "vignette=PI/4"
     )
-    
-    if os.path.exists(audio_path):
-        os.remove(audio_path)
+
+    if clip_paths:
+        clip_target_dur = max(3.0, total_video_duration / len(clip_paths))
+        processed_part_files = []
+        for i, clip_src in enumerate(clip_paths[:3]):
+            part_file = f"bg_part_{i}.mp4"
+            processed_part_files.append(part_file)
+            subprocess.run([
+                "ffmpeg", "-y", "-stream_loop", "-1", "-i", clip_src,
+                "-t", str(clip_target_dur),
+                "-vf", filter_fx,
+                "-c:v", "libx264", "-preset", "fast", "-an", part_file
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+        bg_concat_txt = "bg_concat.txt"
+        with open(bg_concat_txt, "w") as f_b:
+            for pf in processed_part_files:
+                f_b.write(f"file '{pf}'\n")
+
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+            "-i", bg_concat_txt, "-c", "copy", master_bg_processed
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    else:
+        # Fallback background video generated locally if Pexels fails
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x14161E:s=1080x1920:d={total_video_duration}",
+            "-vf", filter_fx, "-c:v", "libx264", "-t", str(total_video_duration), master_bg_processed
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # Build timed FFmpeg drawtext filters for group-by-group captions
+    # Detect available font path
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    if not os.path.exists(font_path):
+        font_path = "Sans"
+
+    filter_parts = ["[0:v]copy[v0]"]
+    total_segs = len(timed_segments)
+
+    for idx, seg in enumerate(timed_segments):
+        horizontal_block = wrap_horizontal_safe(seg["phrase"], max_chars=22)
+        txt_filename = f"phrase_text_{idx}.txt"
+        with open(txt_filename, "w", encoding="utf-8") as tf:
+            tf.write(horizontal_block)
+            
+        in_stream = f"v{idx}"
+        out_stream = "outv" if idx == total_segs - 1 else f"v{idx+1}"
+        time_window = f"between(t,{seg['start']:.3f},{seg['end']:.3f})"
         
-    return output_filename, script_text
+        fontfile_arg = f"fontfile='{font_path}':" if os.path.exists(font_path) else ""
         
+        filter_expr = (
+            f"[{in_stream}]drawtext="
+            f"textfile='{txt_filename}':"
+            f"fontcolor={COLOR_BASE}:"
+            f"fontsize={FONT_SIZE}:"
+            f"{fontfile_arg}"
+            f"borderw={OUTLINE_WIDTH}:"
+            f"bordercolor={OUTLINE_COLOR}:"
+            f"x=(w-text_w)/2:y=(h-text_h)/2 + 150:"
+            f"shadowx=3:shadowy=3:"
+            f"enable='{time_window}'[{out_stream}]"
+        )
+        filter_parts.append(filter_expr)
+
+    filter_complex_string = ";\n".join(filter_parts)
+
+    # Final rendering
+    subprocess.run([
+        "ffmpeg", "-y", "-i", master_bg_processed, "-i", "final_voice_track.mp3",
+        "-filter_complex", filter_complex_string, "-map", "[outv]", "-map", "1:a",
+        "-c:v", "libx264", "-r", "30", "-fps_mode", "cfr", "-preset", "fast", "-pix_fmt", "yuv420p",
+        "-shortest", output_filename
+    ], check=True)
+
+    # Cleanup temp files
+    for idx in range(len(all_phrases)):
+        for ext in [".mp3", ".txt"]:
+            fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
+            if os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except:
+                    pass
+    if os.path.exists("final_voice_track.mp3"):
+        os.remove("final_voice_track.mp3")
+
+    return output_filename, full_script_text
+                
