@@ -2,7 +2,18 @@ import streamlit as st
 import os
 from director import create_motivation_reel
 
+# 1. Page Configuration
 st.set_page_config(page_title="Motivation Reels Studio", page_icon="⚡")
+
+# 2. Hide Streamlit Hamburger Menu, Footer, and Header to lock down code access
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 st.title("⚡ Motivation Reels Studio")
 st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters.")
@@ -19,7 +30,7 @@ with st.form("reel_form"):
     
     topic_input = st.text_input(
         "Motivation Topic (Leave blank for random viral topic):", 
-        placeholder="e.g., Unstoppable morning discipline, overcoming fear, silent grinding..."
+        placeholder="e.g., Focus, Success, Failure, Overcoming fear, Silent grinding..."
     )
     
     col1, col2 = st.columns(2)
