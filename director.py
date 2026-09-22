@@ -42,10 +42,10 @@ def get_pexels_videos(topic, time_of_day, count=3):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Diverse motivational cinematic query variations (cars, roads, walking, city night/morning vibes)
+    clean_topic = topic if topic and len(topic.strip()) > 1 else "motivation"
     query_pool = [
-        f"cinematic car driving on highway road night city {topic}",
-        f"person walking alone on city street dark moody motivation",
+        f"cinematic car driving on highway road night city {clean_topic}",
+        f"person walking alone on city street dark moody {clean_topic}",
         f"drone view moving forward down a dark highway road",
         f"cinematic traffic lights motion blur fast pace life",
         f"determined person walking forward urban street cinematic"
@@ -60,7 +60,6 @@ def get_pexels_videos(topic, time_of_day, count=3):
             data = response.json()
             videos = data.get("videos", [])
             if videos:
-                # Filter out already used clips from hidden studio history
                 available_videos = filter_unused_pexels_clips(videos)
                 random.shuffle(available_videos)
                 
@@ -122,11 +121,21 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     else:
         time_instruction = "Do NOT mention any time of day, days of the week, dates, or years."
 
+    # Handle Topic logic precisely
+    if topic and len(topic.strip()) > 0:
+        topic_instruction = f"CORE SUBJECT: You MUST write the entire motivational speech strictly about the topic: '{topic.strip()}'. Every line must anchor directly to this concept."
+    else:
+        topic_instruction = "CORE SUBJECT: Choose a powerful viral motivational theme (such as relentless discipline, breaking past limits, or overcoming adversity)."
+
+    # Inject a random variation seed so typing the same topic twice never repeats scripts
+    unique_seed = random.randint(100000, 999999)
+    
     prompt = (
-        f"Topic/Theme: '{topic if topic else "unyielding discipline, pushing through limits, and building an unstoppable life"}'. "
-        f"Target Length: {target_words}. "
-        f"{time_instruction} "
-        "Write a powerful, highly gripping, cinematic motivational speech structured into JSON. "
+        f"{topic_instruction}\n"
+        f"Target Length: {target_words}.\n"
+        f"{time_instruction}\n"
+        f"Variation Seed: {unique_seed} (Ensure a totally fresh angle, wording, and narrative structure different from standard templates).\n\n"
+        "Write a powerful, highly gripping, cinematic motivational speech structured into JSON.\n"
         "CRITICAL RULES:\n"
         "1. NO TEMPLATE RESTRICTIONS: Do not use rigid formulaic openings. Create a completely fresh, hard-hitting, raw hook that instantly grabs attention and forces viewers to keep watching.\n"
         "2. 'hook': The opening sentence must be exceptionally striking and intense.\n"
@@ -199,7 +208,6 @@ async def generate_phrase_audio(text_content, filename):
     success = False
     for _ in range(3):
         try:
-            # Distinct American male voice (AndrewNeural)
             comm = edge_tts.Communicate(text_content, "en-US-AndrewNeural", rate="+0%", pitch="-1Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
@@ -346,4 +354,3 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-    
