@@ -5,12 +5,15 @@ from director import create_motivation_reel
 # 1. Page Configuration
 st.set_page_config(page_title="Motivation Reels Studio", page_icon="⚡")
 
-# 2. Hide Streamlit Hamburger Menu, Footer, and Header to lock down code access
+# 2. Hide Streamlit Toolbar, GitHub Link, Menu, and Footer to lock down code access
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    div[data-testid="stToolbar"] {display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    #GithubIcon {visibility: hidden !important;}
     </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -94,4 +97,4 @@ if st.session_state.generated_video and os.path.exists(st.session_state.generate
             file_name="facebook_motivation_reel.mp4",
             mime="video/mp4"
         )
-        
+            
