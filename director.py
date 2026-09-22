@@ -6,6 +6,8 @@ import asyncio
 import subprocess
 import requests
 import streamlit as st
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from google import genai
 from google.genai import types
 
@@ -71,7 +73,7 @@ def get_pexels_videos(query, count=2):
         print(f"Pexels exception: {e}")
     return []
 
-def generate_structured_script(topic, duration_str, time_of_day):
+def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str):
     if not GEMINI_KEY:
         raise ValueError("GEMINI_KEY is missing from Streamlit secrets.")
 
@@ -88,15 +90,31 @@ def generate_structured_script(topic, duration_str, time_of_day):
     }
     target_words = word_limits.get(duration_str, "70 to 85 words total")
     
-    time_instruction = ""
-    if time_of_day == "Morning":
-        time_instruction = "Incorporate a morning reflection context naturally."
-    elif time_of_day == "Afternoon":
-        time_instruction = "Incorporate an afternoon reflection context naturally."
-    elif time_of_day == "Night":
-        time_instruction = "Incorporate a night reflection context naturally."
+    # Precise timezone tracking
+    tz_mapping = {
+        "Nigeria (WAT - Africa/Lagos)": "Africa/Lagos",
+        "USA (EST - America/New_York)": "America/New_York",
+        "USA (PST - America/Los_Angeles)": "America/Los_Angeles"
+    }
+    selected_tz_name = tz_mapping.get(audience_tz_str, "Africa/Lagos")
+    audience_time = datetime.now(ZoneInfo(selected_tz_name))
+    
+    day_name = audience_time.strftime("%A")
+    month_name = audience_time.strftime("%B")
+    day_num = audience_time.strftime("%d")
+
+    # Time instruction configuration based on user choice
+    if time_of_day and time_of_day.lower() != "none":
+        time_instruction = (
+            f"STRICT TEMPORAL REQUIREMENT: The user selected time context '{time_of_day}' for the {audience_tz_str} audience timezone. "
+            f"You MUST naturally weave in that today is {day_name}, {month_name} {day_num}, and it is currently {time_of_day.lower()}. "
+            "NEVER mention any year numbers (e.g., do not say 2026)."
+        )
     else:
-        time_instruction = "Do not mention any specific time of day or calendar dates."
+        time_instruction = (
+            "STRICT RULE: The user selected 'None' for time. "
+            "Do NOT mention any time of day (morning, afternoon, night), do NOT mention days of the week, and do NOT mention calendar dates or years."
+        )
 
     random_tones = ["intense and commanding", "deeply philosophical", "high-energy and urgent", "calm, wise, and grounded", "raw and uncompromising"]
     chosen_tone = random.choice(random_tones)
@@ -105,7 +123,7 @@ def generate_structured_script(topic, duration_str, time_of_day):
         f"Topic: '{topic if topic else "unyielding discipline, personal growth, and overcoming obstacles"}'. "
         f"Target Length: {target_words}. "
         f"Tone style: {chosen_tone}. "
-        f"Time Context: {time_instruction} "
+        f"{time_instruction} "
         "Write a powerful viral motivation speech structured into JSON with a gripping opening 'hook' and an array of 3 to 6 short 'speech_lines' that flow seamlessly together."
     )
 
@@ -175,7 +193,8 @@ async def generate_phrase_audio(text_content, filename):
     success = False
     for _ in range(3):
         try:
-            comm = edge_tts.Communicate(text_content, "en-US-ChristopherNeural", rate="-2%", pitch="-2Hz")
+            # Using en-US-AndrewNeural (a completely distinct American male voice from ChristopherNeural)
+            comm = edge_tts.Communicate(text_content, "en-US-AndrewNeural", rate="+0%", pitch="+0Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
                 success = True
@@ -183,13 +202,12 @@ async def generate_phrase_audio(text_content, filename):
         except Exception:
             await asyncio.sleep(1)
     if not success:
-        # Fallback to gTTS if edge-tts network hiccups
         from gtts import gTTS
         tts = gTTS(text=text_content, lang='en', slow=False)
         tts.save(filename)
 
-def create_motivation_reel(topic, duration_str, time_of_day, output_filename="motivation_reel.mp4"):
-    script_data = generate_structured_script(topic, duration_str, time_of_day)
+def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, output_filename="motivation_reel.mp4"):
+    script_data = generate_structured_script(topic, duration_str, time_of_day, audience_tz_str)
     
     hook_text = clean_text_formatting(script_data['hook'])
     speech_lines = [clean_text_formatting(line) for line in script_data['speech_lines']]
@@ -197,14 +215,12 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
     
     full_script_text = " ".join(all_phrases)
 
-    # Generate individual phrase audio tracks asynchronously
     async def build_audio_tracks():
         for idx, text in enumerate(all_phrases):
             await generate_phrase_audio(text, f"phrase_audio_{idx}.mp3")
 
     asyncio.run(build_audio_tracks())
 
-    # Build timed segments
     timed_segments = []
     current_time = 0.0
     for idx, phrase in enumerate(all_phrases):
@@ -221,7 +237,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
 
     total_video_duration = current_time + 0.2
 
-    # Concatenate audio files into final voice track
     audio_concat_txt = "audio_concat.txt"
     with open(audio_concat_txt, "w") as f_a:
         for seg in timed_segments:
@@ -232,7 +247,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         "-i", audio_concat_txt, "-c", "copy", "final_voice_track.mp3"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    # Fetch Pexels background clips
     clip_paths = get_pexels_videos(topic, count=3)
     
     master_bg_processed = "master_bg_unique.mp4"
@@ -267,14 +281,11 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
             "-i", bg_concat_txt, "-c", "copy", master_bg_processed
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     else:
-        # Fallback background video generated locally if Pexels fails
         subprocess.run([
             "ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x14161E:s=1080x1920:d={total_video_duration}",
             "-vf", filter_fx, "-c:v", "libx264", "-t", str(total_video_duration), master_bg_processed
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    # Build timed FFmpeg drawtext filters for group-by-group captions
-    # Detect available font path
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     if not os.path.exists(font_path):
         font_path = "Sans"
@@ -310,7 +321,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
 
     filter_complex_string = ";\n".join(filter_parts)
 
-    # Final rendering
     subprocess.run([
         "ffmpeg", "-y", "-i", master_bg_processed, "-i", "final_voice_track.mp3",
         "-filter_complex", filter_complex_string, "-map", "[outv]", "-map", "1:a",
@@ -318,7 +328,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         "-shortest", output_filename
     ], check=True)
 
-    # Cleanup temp files
     for idx in range(len(all_phrases)):
         for ext in [".mp3", ".txt"]:
             fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
@@ -331,4 +340,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, output_filename="mo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-                
+    
