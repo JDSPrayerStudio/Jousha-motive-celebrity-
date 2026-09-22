@@ -10,6 +10,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from google import genai
 from google.genai import types
+from history_manager import filter_unused_pexels_clips
 
 # Safely fetch keys from Streamlit Cloud Secrets or Environment variables
 def get_secure_key(key_name):
@@ -31,8 +32,8 @@ FONT_SIZE = 54
 OUTLINE_WIDTH = 7  
 OUTLINE_COLOR = "black"
 
-def get_pexels_videos(query, count=2):
-    """Fetches vertical background videos from Pexels using secure key."""
+def get_pexels_videos(topic, time_of_day, count=3):
+    """Fetches unique vertical background videos matching roads, cars, walking, and topic without repeats."""
     if not PEXELS_KEY:
         return []
     
@@ -41,8 +42,17 @@ def get_pexels_videos(query, count=2):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    search_query = query if query and len(query) > 2 else "dark cinematic abstract"
-    url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(search_query)}&orientation=portrait&per_page=10"
+    # Diverse motivational cinematic query variations (cars, roads, walking, city night/morning vibes)
+    query_pool = [
+        f"cinematic car driving on highway road night city {topic}",
+        f"person walking alone on city street dark moody motivation",
+        f"drone view moving forward down a dark highway road",
+        f"cinematic traffic lights motion blur fast pace life",
+        f"determined person walking forward urban street cinematic"
+    ]
+    
+    selected_query = random.choice(query_pool)
+    url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(selected_query)}&orientation=portrait&per_page=15"
     
     try:
         response = requests.get(url, headers=headers)
@@ -50,16 +60,18 @@ def get_pexels_videos(query, count=2):
             data = response.json()
             videos = data.get("videos", [])
             if videos:
-                random.shuffle(videos)
-                downloaded_paths = []
+                # Filter out already used clips from hidden studio history
+                available_videos = filter_unused_pexels_clips(videos)
+                random.shuffle(available_videos)
                 
-                for i, v in enumerate(videos):
+                downloaded_paths = []
+                for i, v in enumerate(available_videos):
                     if len(downloaded_paths) >= count:
                         break
                     video_files = v.get("video_files", [])
                     if video_files:
                         file_url = video_files[0]["link"]
-                        vid_path = f"pexels_bg_{i}.mp4"
+                        vid_path = f"pexels_bg_{i}_{random.randint(1000,9999)}.mp4"
                         
                         v_data = requests.get(file_url, stream=True)
                         if v_data.status_code == 200:
@@ -90,7 +102,6 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     }
     target_words = word_limits.get(duration_str, "70 to 85 words total")
     
-    # Precise timezone tracking
     tz_mapping = {
         "Nigeria (WAT - Africa/Lagos)": "Africa/Lagos",
         "USA (EST - America/New_York)": "America/New_York",
@@ -103,28 +114,23 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     month_name = audience_time.strftime("%B")
     day_num = audience_time.strftime("%d")
 
-    # Time instruction configuration based on user choice
     if time_of_day and time_of_day.lower() != "none":
         time_instruction = (
-            f"STRICT TEMPORAL REQUIREMENT: The user selected time context '{time_of_day}' for the {audience_tz_str} audience timezone. "
-            f"You MUST naturally weave in that today is {day_name}, {month_name} {day_num}, and it is currently {time_of_day.lower()}. "
-            "NEVER mention any year numbers (e.g., do not say 2026)."
+            f"TEMPORARY CONTEXT: Today is {day_name}, {month_name} {day_num}, and it is currently {time_of_day.lower()}. "
+            "Weave this organically into the speech without naming any year number."
         )
     else:
-        time_instruction = (
-            "STRICT RULE: The user selected 'None' for time. "
-            "Do NOT mention any time of day (morning, afternoon, night), do NOT mention days of the week, and do NOT mention calendar dates or years."
-        )
-
-    random_tones = ["intense and commanding", "deeply philosophical", "high-energy and urgent", "calm, wise, and grounded", "raw and uncompromising"]
-    chosen_tone = random.choice(random_tones)
+        time_instruction = "Do NOT mention any time of day, days of the week, dates, or years."
 
     prompt = (
-        f"Topic: '{topic if topic else "unyielding discipline, personal growth, and overcoming obstacles"}'. "
+        f"Topic/Theme: '{topic if topic else "unyielding discipline, pushing through limits, and building an unstoppable life"}'. "
         f"Target Length: {target_words}. "
-        f"Tone style: {chosen_tone}. "
         f"{time_instruction} "
-        "Write a powerful viral motivation speech structured into JSON with a gripping opening 'hook' and an array of 3 to 6 short 'speech_lines' that flow seamlessly together."
+        "Write a powerful, highly gripping, cinematic motivational speech structured into JSON. "
+        "CRITICAL RULES:\n"
+        "1. NO TEMPLATE RESTRICTIONS: Do not use rigid formulaic openings. Create a completely fresh, hard-hitting, raw hook that instantly grabs attention and forces viewers to keep watching.\n"
+        "2. 'hook': The opening sentence must be exceptionally striking and intense.\n"
+        "3. 'speech_lines': Break down the rest of the speech into 3 to 6 powerful, punchy sentences that flow seamlessly."
     )
 
     response_schema = {
@@ -158,7 +164,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
                 print(f"Model {model_name} attempt {attempt} failed: {e}")
                 time.sleep(1)
                 
-    raise RuntimeError("Gemini models are currently experiencing high traffic. Please try again.")
+    raise RuntimeError("Gemini models are experiencing high traffic. Please try again.")
 
 def clean_text_formatting(text):
     import re
@@ -193,8 +199,8 @@ async def generate_phrase_audio(text_content, filename):
     success = False
     for _ in range(3):
         try:
-            # Using en-US-AndrewNeural (a completely distinct American male voice from ChristopherNeural)
-            comm = edge_tts.Communicate(text_content, "en-US-AndrewNeural", rate="+0%", pitch="+0Hz")
+            # Distinct American male voice (AndrewNeural)
+            comm = edge_tts.Communicate(text_content, "en-US-AndrewNeural", rate="+0%", pitch="-1Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
                 success = True
@@ -247,14 +253,14 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
         "-i", audio_concat_txt, "-c", "copy", "final_voice_track.mp3"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    clip_paths = get_pexels_videos(topic, count=3)
+    clip_paths = get_pexels_videos(topic, time_of_day, count=3)
     
     master_bg_processed = "master_bg_unique.mp4"
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
         "fps=30,"
-        "eq=brightness=0.03:contrast=1.12:saturation=1.15,"
+        "eq=brightness=0.02:contrast=1.14:saturation=1.18,"
         "vignette=PI/4"
     )
 
