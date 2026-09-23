@@ -56,7 +56,7 @@ with st.form("reel_form"):
         duration_choice = st.selectbox(
             "Target Duration:",
             ["10s", "15s", "20s"],
-            index=4 # Default to 15s
+            index=2 # Default to 15s
         )
     with col2:
         time_setting = st.selectbox(
