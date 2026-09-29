@@ -34,7 +34,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters.")
+st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters with natural US street slang and luxury B-roll.")
 
 # Check API Keys
 if not os.environ.get("GEMINI_API_KEY"):
@@ -44,31 +44,43 @@ if not os.environ.get("PEXELS_API_KEY"):
 
 # Studio Controls Form
 with st.form("reel_form"):
-    st.subheader("1. Content Settings")
+    st.subheader("1. Content & Narrative Settings")
     
     topic_input = st.text_input(
         "Motivation Topic (Leave blank for random viral topic):", 
-        placeholder="e.g., Focus, Success, Failure, Overcoming fear, Silent grinding..."
+        placeholder="e.g., Success as revenge, Relentless grind, Overcoming doubters..."
     )
     
     col1, col2 = st.columns(2)
     with col1:
         duration_choice = st.selectbox(
             "Target Duration:",
-            ["10s", "15s", "20s"],
-            index=2 # Default to 15s
+            ["10s", "15s", "20s", "25s", "30s"],
+            index=2 # Default to 20s
         )
     with col2:
         time_setting = st.selectbox(
             "Time Context Style:",
             ["Morning", "Afternoon", "Night", "None"],
-            index=0
+            index=2 # Default to Night for luxury vibe
         )
         
-    st.subheader("2. Audience & Timezone Settings")
+    st.subheader("2. Voice & Studio Customization")
+    voice_choice = st.selectbox(
+        "Select Narrator Voice:",
+        [
+            "Andrew (Deep Gritty US Male)",
+            "Aria (Confident Cinematic Female)",
+            "Christopher (Authoritative US Male)",
+            "Guy (Smooth Street Motivation Male)"
+        ],
+        index=0
+    )
+        
+    st.subheader("3. Audience & Timezone Settings")
     audience_tz = st.selectbox(
         "Target Audience Timezone:",
-        ["Nigeria (WAT - Africa/Lagos)", "USA (EST - America/New_York)", "USA (PST - America/Los_Angeles)"]
+        ["USA (EST - America/New_York)", "USA (PST - America/Los_Angeles)", "Nigeria (WAT - Africa/Lagos)"]
     )
         
     submitted = st.form_submit_button("🚀 Manufacture Facebook Reel")
@@ -83,13 +95,14 @@ if submitted:
     if not os.environ.get("GEMINI_API_KEY") or not os.environ.get("PEXELS_API_KEY"):
         st.error("Please ensure both Gemini and Pexels API keys are configured in your Streamlit app settings.")
     else:
-        with st.spinner("🔄 Fetching Pexels unique clips, writing custom script, and manufacturing video..."):
+        with st.spinner("🔄 Fetching multi-clip luxury assets, writing street-slang script, and manufacturing video..."):
             try:
                 video_path, script_output = create_motivation_reel(
                     topic=topic_input,
                     duration_str=duration_choice,
                     time_of_day=time_setting,
-                    audience_tz_str=audience_tz
+                    audience_tz_str=audience_tz,
+                    voice_profile=voice_choice
                 )
                 st.session_state.generated_video = video_path
                 st.session_state.generated_script = script_output
@@ -111,5 +124,5 @@ if st.session_state.generated_video and os.path.exists(st.session_state.generate
             data=file,
             file_name="facebook_motivation_reel.mp4",
             mime="video/mp4"
-    )
+        )
         
