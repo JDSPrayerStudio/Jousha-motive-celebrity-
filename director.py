@@ -29,7 +29,7 @@ OUTLINE_WIDTH = 7
 OUTLINE_COLOR = "black"
 
 def get_pexels_videos(topic, time_of_day, count=4):
-    """Fetches exclusively elite global luxury assets (Monaco, Dubai, Supercars, Private Jets) with zero local/ordinary backgrounds."""
+    """Fetches strictly multi-million dollar hypercars, diamond-encrusted watches, pure shining gold, and elite luxury assets."""
     if not PEXELS_KEY:
         return []
     
@@ -38,14 +38,14 @@ def get_pexels_videos(topic, time_of_day, count=4):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Strict elite global luxury query pool—no ordinary streets, no local environments
+    # Ultra-exclusive multi-million dollar hypercar & blinding luxury asset pool
     query_pool = [
-        "Monaco Ferrari cinematic night luxury sports car highway",
-        "Dubai Lamborghini street cinematic wealthy night skyscraper",
-        "Rolls Royce Phantom night city cinematic luxury interior and exterior",
-        "private jet luxury cabin flight cinematic wealthy lifestyle",
-        "luxury skyscraper penthouse night city lights elite aesthetic",
-        "expensive luxury watch macro close up high end wealth lifestyle"
+        "Bugatti Chiron hypercar cinematic night neon shining reflection",
+        "Rolls Royce luxury car sparkling clean paint gloss night street",
+        "Lamborghini supercar glossy neon reflections high speed cinematic",
+        "diamond luxury watch macro close up shining brilliant gem sparkles",
+        "pure gold bars wealth glittering shining luxury close up",
+        "private jet luxury interior gold elite wealthy lifestyle cinematic"
     ]
     
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
@@ -121,7 +121,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     if topic and len(topic.strip()) > 0:
         topic_instruction = f"CORE SUBJECT: Write the entire motivational speech strictly about: '{topic.strip()}'."
     else:
-        topic_instruction = "CORE SUBJECT: Choose an elite luxury motivation theme focusing on high-end success, supreme wealth, and uncompromised power."
+        topic_instruction = "CORE SUBJECT: Choose an elite luxury motivation theme focusing on supreme wealth, uncompromised power, and elite success."
 
     unique_seed = random.randint(100000, 999999)
     
@@ -270,12 +270,12 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     
     master_bg_processed = "master_bg_unique.mp4"
     
-    # Enhanced high-contrast cinematic color grading for high-end richness
+    # Ultra-vibrant hyper-gloss cinematic grade for maximum shine on diamonds and gold
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
         "fps=30,"
-        "eq=brightness=0.03:contrast=1.28:saturation=1.40"
+        "eq=brightness=0.01:contrast=1.35:saturation=1.50"
     )
 
     if clip_paths:
@@ -360,3 +360,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
+    
