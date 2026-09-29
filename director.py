@@ -12,7 +12,6 @@ from google import genai
 from google.genai import types
 from history_manager import filter_unused_pexels_clips
 
-# Safely fetch keys from Streamlit Cloud Secrets or Environment variables
 def get_secure_key(key_name):
     try:
         if st.secrets and key_name in st.secrets:
@@ -24,16 +23,13 @@ def get_secure_key(key_name):
 PEXELS_KEY = get_secure_key("PEXELS_API_KEY")
 GEMINI_KEY = get_secure_key("GEMINI_API_KEY")
 
-# ==========================================
-# STYLE SETTINGS (BOLD & SAFE MARGIN CAPTIONS)
-# ==========================================
 COLOR_BASE = "white"
 FONT_SIZE = 54  
 OUTLINE_WIDTH = 7  
 OUTLINE_COLOR = "black"
 
 def get_pexels_videos(topic, time_of_day, count=4):
-    """Fetches unique luxury background videos matching high-end assets without repeats."""
+    """Fetches bright, high-end luxury cinematic daylight clips without repeats."""
     if not PEXELS_KEY:
         return []
     
@@ -44,12 +40,12 @@ def get_pexels_videos(topic, time_of_day, count=4):
     
     clean_topic = topic if topic and len(topic.strip()) > 1 else "luxury success motivation"
     query_pool = [
-        f"luxury supercars driving fast night city neon {clean_topic}",
-        f"modern luxury mansion glass architecture night view penthouse",
-        f"wealthy lifestyle stacks of cash currency counting luxury watch",
-        f"private jet tarmac night cinematic luxury travel",
-        f"luxury yacht cruising night lights water cinematic",
-        f"dark moody high-end sports car exhaust flame acceleration"
+        f"luxurious supercars driving daylight sunshine highway {clean_topic}",
+        f"modern luxury glass mansion daylight aerial view cinematic",
+        f"wealthy lifestyle high-end business luxury watch sunshine",
+        f"private jet taking off sunny tarmac luxury travel",
+        f"luxury yacht sailing bright blue ocean water cinematic",
+        f"successful businessman walking confidently sunny urban street"
     ]
     
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
@@ -134,12 +130,12 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         f"Target Length: {target_words}.\n"
         f"{time_instruction}\n"
         f"Variation Seed: {unique_seed} (Ensure absolute uniqueness).\n\n"
-        "Write a powerful, gritty, street-smart cinematic motivational speech structured into JSON.\n"
+        "Write a powerful, sharp, cinematic motivational speech structured into JSON.\n"
         "CRITICAL WRITING STYLE RULES:\n"
-        "1. REAL HUMAN US STREET TONE: Write like a real creator talking off-the-cuff on US streets. Avoid stiff corporate AI wording or textbook essays.\n"
-        "2. NATURAL FILLERS & SLANG: Naturally integrate organic filler words and conversational markers where appropriate, such as 'bro', 'look', 'hmm', 'uh', or 'nah' to mimic authentic human brain processing and thinking flow.\n"
-        "3. 'hook': The opening sentence must be raw, punchy, and instantly grip attention.\n"
-        "4. 'speech_lines': Break down the rest of the speech into 3 to 6 powerful, short, punchy sentences."
+        "1. NO ROBOTIC FILLERS: Strictly avoid awkward conversational filler noises like 'uh', 'hmm', 'nah', or forced slang. The delivery must sound articulate, punchy, clean, and professional.\n"
+        "2. CLEAR HUMAN CADENCE: Write natural, confident sentences that flow fluidly when spoken aloud by a high-end speaker.\n"
+        "3. 'hook': The opening sentence must hit hard and command instant attention.\n"
+        "4. 'speech_lines': Break down the rest of the speech into 3 to 6 powerful, crisp sentences."
     )
 
     response_schema = {
@@ -217,7 +213,8 @@ async def generate_phrase_audio(text_content, filename, voice_profile):
     success = False
     for _ in range(3):
         try:
-            comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+0%", pitch="-2Hz")
+            # Set rate and pitch to optimal human speaking tone without distortion
+            comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+0%", pitch="+0Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
                 success = True
@@ -275,13 +272,12 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     
     master_bg_processed = "master_bg_unique.mp4"
     
-    # UNCHANGED FFPEG FILTER CHAIN TO BYPASS FACEBOOK UNORIGINAL CONTENT SCAN
+    # UPGRADED FFPEG FILTER CHAIN: Bright daytime cinematic grade, high contrast, clean fingerprint evasion (NO heavy dark vignette)
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
         "fps=30,"
-        "eq=brightness=0.02:contrast=1.14:saturation=1.18,"
-        "vignette=PI/4"
+        "eq=brightness=0.08:contrast=1.20:saturation=1.25"
     )
 
     if clip_paths:
@@ -366,4 +362,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-        
+    
