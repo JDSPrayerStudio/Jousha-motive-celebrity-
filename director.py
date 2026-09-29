@@ -29,19 +29,17 @@ OUTLINE_WIDTH = 7
 OUTLINE_COLOR = "black"
 
 def generate_dynamic_pexels_queries(script_lines, count=4):
-    """Uses Gemini to extract dynamic, high-end luxury visual search terms directly 
-    from the generated script lines, strictly banning any cheap or low-class imagery."""
+    """Extracts hyper-specific visual queries from the script text 
+    while blocking cheap elements and enforcing high-end aesthetic variety."""
     client = genai.Client(api_key=GEMINI_KEY)
     
     combined_text = " ".join(script_lines)
     prompt = (
-        f"Based on these script lines: '{combined_text}', generate {count} unique, high-end search queries "
-        "to find background stock videos on Pexels.\n"
-        "STRICT LUXURY RULES:\n"
-        "1. Every query must focus purely on ultra-luxury elements: cinematic supercars, elite skyline penthouses, "
-        "private yacht decks, gold, high-end luxury watches, or premium architectural views.\n"
-        "2. ABSOLUTELY FORBIDDEN: commercial airplanes with regular passengers, public buses, crowded economy settings, "
-        "cheap clothing, or ordinary street traffic.\n"
+        f"Based on these script lines: '{combined_text}', generate {count} completely unique, "
+        "high-end visual search queries for Pexels stock video.\n"
+        "RULES:\n"
+        "1. Match the exact vibe of the text (e.g., if it talks about grit/grind, show intense focus, night driving, heavy machinery, or elite workspaces; if luxury, show hypercars or gold close-ups).\n"
+        "2. ABSOLUTELY NO ordinary crowds, public transit, cheap clothing, or generic city traffic.\n"
         "3. Output ONLY a valid JSON list of strings, e.g., [\"query1\", \"query2\", \"query3\", \"query4\"]"
     )
 
@@ -58,19 +56,18 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
             if isinstance(queries, list):
                 return queries[:count]
     except Exception as e:
-        print(f"Dynamic query generation fallback triggered: {e}")
+        print(f"Dynamic query generation fallback: {e}")
         
-    # Fallback high-end luxury queries if dynamic extraction fails
     return [
-        "cinematic luxury supercar night driving reflection",
-        "exclusive penthouse city skyline night view cinematic",
-        "luxury high end mechanical watch macro close up",
-        "private yacht deck ocean night cinematic drone"
+        "cinematic dark moody supercar night driving",
+        "intense focus close up eyes determined gritty",
+        "heavy industry gold melting glowing fire sparks",
+        "luxury penthouse night skyline cinematic drone shot"
     ]
 
 def get_pexels_videos(script_lines, count=4):
-    """Fetches videos based on dynamic script keywords while strictly checking 
-    the history manager to ensure zero video repetition."""
+    """Fetches fresh videos using script keywords and forces unique IDs 
+    so backgrounds never repeat across video generations."""
     if not PEXELS_KEY:
         return []
     
@@ -83,14 +80,15 @@ def get_pexels_videos(script_lines, count=4):
     downloaded_paths = []
     
     for q_idx, query in enumerate(dynamic_queries):
-        url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(query)}&orientation=portrait&per_page=15"
+        # Fetch up to 80 pages deep to maximize uniqueness and avoid repeat clips
+        url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(query)}&orientation=portrait&per_page=30&page={random.randint(1, 5)}"
         try:
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json()
                 videos = data.get("videos", [])
                 if videos:
-                    # CRITICAL: filter_unused_pexels_clips ensures it NEVER repeats a used video ID
+                    # Filter out any video IDs that have already been used in previous history
                     available_videos = filter_unused_pexels_clips(videos)
                     if not available_videos:
                         available_videos = videos 
@@ -100,7 +98,7 @@ def get_pexels_videos(script_lines, count=4):
                         video_files = v.get("video_files", [])
                         if video_files:
                             file_url = video_files[0]["link"]
-                            vid_path = f"pexels_bg_{q_idx}_{random.randint(1000,9999)}.mp4"
+                            vid_path = f"pexels_bg_{q_idx}_{random.randint(10000,99999)}.mp4"
                             
                             v_data = requests.get(file_url, stream=True)
                             if v_data.status_code == 200:
@@ -151,22 +149,31 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         time_instruction = "Do NOT mention any time of day, days of the week, dates, or years."
 
     if topic and len(topic.strip()) > 0:
-        topic_instruction = f"CORE SUBJECT: Write the entire motivational speech strictly about: '{topic.strip()}'."
+        topic_instruction = f"CORE SUBJECT: Focus the speech on: '{topic.strip()}'."
     else:
-        topic_instruction = "CORE SUBJECT: Choose an elite luxury motivation theme focusing on supreme wealth, uncompromised power, and elite success."
+        # Broaden the rotation pool to cover success, mindset, risk, hard work, grinding, and bouncing back from failure
+        rotation_themes = [
+            "raw mindset, relentless grinding, and outworking everyone in the room",
+            "taking massive risks when everyone else plays it safe",
+            "turning failure and losses into absolute fuel for dominance",
+            "hyper-focus, discipline, and execution over empty talk",
+            "building an unshakeable empire from the ground up with zero excuses"
+        ]
+        chosen_theme = random.choice(rotation_themes)
+        topic_instruction = f"CORE SUBJECT: Focus heavily on {chosen_theme}."
 
-    unique_seed = random.randint(100000, 999999)
+    unique_seed = random.randint(1000000, 9999999)
     
     prompt = (
         f"{topic_instruction}\n"
         f"Target Length: {target_words}.\n"
         f"{time_instruction}\n"
-        f"Variation Seed: {unique_seed} (Ensure absolute script uniqueness so it never repeats phrases).\n\n"
-        "Write a powerful, ultra-wealthy cinematic motivational speech structured into JSON.\n"
+        f"Variation Seed: {unique_seed} (Ensure complete script uniqueness).\n\n"
+        "Write a powerful, high-retention motivational speech structured into JSON.\n"
         "CRITICAL WRITING STYLE RULES:\n"
-        "1. NO AWKWARD FILLERS: Keep speech sharp, articulate, high-status, and completely professional.\n"
-        "2. 'hook': The opening sentence must hook the viewer immediately.\n"
-        "3. 'speech_lines': Break down the rest of the speech into 3 to 6 short, punchy statements."
+        "1. THE HOOK: The first sentence ('hook') must be an aggressive, jaw-dropping pattern-interrupt statement within the first 1 to 2 seconds that forces viewers to stop scrolling immediately.\n"
+        "2. HUMAN TONE & SLANG: Write like a real, gritty human speaker talking straight to the camera. Use natural speech cadence, short pauses indicated by commas or ellipses, and occasional organic street-smart phrasing or slang (e.g., 'no cap', 'real talk', 'locked in', 'moving silent') where it fits naturally—don't overdo it, keep it authentic.\n"
+        "3. 'speech_lines': Break down the rest of the speech into 3 to 5 raw, punchy statements."
     )
 
     response_schema = {
@@ -241,10 +248,11 @@ async def generate_phrase_audio(text_content, filename, voice_profile):
     }
     selected_voice_id = voice_mapping.get(voice_profile, "en-US-AndrewNeural")
     
+    # Adjusted rate and pitch parameters to allow a more natural, human cadence
     success = False
     for _ in range(3):
         try:
-            comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+5%", pitch="+0Hz")
+            comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+2%", pitch="-1Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
                 success = True
@@ -298,7 +306,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
     clip_count = max(3, int(total_video_duration // 4) + 1)
-    # Dynamically fetch using script phrases with anti-repetition filter enabled
     clip_paths = get_pexels_videos(all_phrases, count=clip_count)
     
     master_bg_processed = "master_bg_unique.mp4"
@@ -386,10 +393,9 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
             if os.path.exists(fpath):
                 try:
                     os.remove(fpath)
-                except:
+                end:
                     pass
     if os.path.exists("final_voice_track.mp3"):
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-                                
