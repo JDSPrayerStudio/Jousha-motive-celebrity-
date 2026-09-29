@@ -29,7 +29,7 @@ OUTLINE_WIDTH = 7
 OUTLINE_COLOR = "black"
 
 def get_pexels_videos(topic, time_of_day, count=4):
-    """Fetches elite, high-end luxury assets explicitly targeting Ferrari, Lamborghini, Rolls-Royce, private jets, and global wealth aesthetics without repeats."""
+    """Fetches exclusively elite global luxury assets (Monaco, Dubai, Supercars, Private Jets) with zero local/ordinary backgrounds."""
     if not PEXELS_KEY:
         return []
     
@@ -38,14 +38,14 @@ def get_pexels_videos(topic, time_of_day, count=4):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Ultra-elite global luxury queries featuring named high-end supercars and elite environments
+    # Strict elite global luxury query pool—no ordinary streets, no local environments
     query_pool = [
-        "Ferrari driving fast cinematic highway night lights luxury",
-        "Lamborghini Aventador cinematic driving high end street luxury",
-        "Rolls Royce luxury car driving sleek high class evening city",
-        "private jet luxury travel tarmac cinematic high end lifestyle",
-        "luxury penthouse balcony view global metropolis skyscrapers night",
-        "wealthy lifestyle luxury watch expensive currency counting close up"
+        "Monaco Ferrari cinematic night luxury sports car highway",
+        "Dubai Lamborghini street cinematic wealthy night skyscraper",
+        "Rolls Royce Phantom night city cinematic luxury interior and exterior",
+        "private jet luxury cabin flight cinematic wealthy lifestyle",
+        "luxury skyscraper penthouse night city lights elite aesthetic",
+        "expensive luxury watch macro close up high end wealth lifestyle"
     ]
     
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
@@ -212,7 +212,6 @@ async def generate_phrase_audio(text_content, filename, voice_profile):
     success = False
     for _ in range(3):
         try:
-            # Clean speaking rate and pitch
             comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+5%", pitch="+0Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
@@ -271,12 +270,12 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     
     master_bg_processed = "master_bg_unique.mp4"
     
-    # Cinematic color grade tuned for high-contrast, wealthy visual tones
+    # Enhanced high-contrast cinematic color grading for high-end richness
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
         "fps=30,"
-        "eq=brightness=0.04:contrast=1.25:saturation=1.35"
+        "eq=brightness=0.03:contrast=1.28:saturation=1.40"
     )
 
     if clip_paths:
@@ -361,4 +360,3 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-    
