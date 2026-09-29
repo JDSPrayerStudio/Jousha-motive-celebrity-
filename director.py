@@ -5,7 +5,7 @@ import json
 import asyncio
 import subprocess
 import requests
-import streamlit as st
+import streamlit as str_lit
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from google import genai
@@ -14,8 +14,8 @@ from history_manager import filter_unused_pexels_clips
 
 def get_secure_key(key_name):
     try:
-        if st.secrets and key_name in st.secrets:
-            return st.secrets[key_name]
+        if str_lit.secrets and key_name in str_lit.secrets:
+            return str_lit.secrets[key_name]
     except Exception:
         pass
     return os.environ.get(key_name)
@@ -29,7 +29,8 @@ OUTLINE_WIDTH = 7
 OUTLINE_COLOR = "black"
 
 def get_pexels_videos(topic, time_of_day, count=4):
-    """Fetches strictly multi-million dollar hypercars, diamond-encrusted watches, pure shining gold, and elite luxury assets."""
+    """Fetches strictly hyper-exclusive macro texture and high-end asset shots. 
+    Completely bans cities, streets, and people to guarantee 100% pure luxury."""
     if not PEXELS_KEY:
         return []
     
@@ -38,14 +39,14 @@ def get_pexels_videos(topic, time_of_day, count=4):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Ultra-exclusive multi-million dollar hypercar & blinding luxury asset pool
+    # Strict macro & surface-level ultra-luxury pool. NO cities, NO streets, NO people.
     query_pool = [
-        "Bugatti Chiron hypercar cinematic night neon shining reflection",
-        "Rolls Royce luxury car sparkling clean paint gloss night street",
-        "Lamborghini supercar glossy neon reflections high speed cinematic",
-        "diamond luxury watch macro close up shining brilliant gem sparkles",
-        "pure gold bars wealth glittering shining luxury close up",
-        "private jet luxury interior gold elite wealthy lifestyle cinematic"
+        "macro close up diamond watch sparkles luxury jewelry",
+        "pure gold bars stacking shining reflection macro wealth",
+        "hypercar carbon fiber body paint gloss reflection close up",
+        "luxury supercar wheel rim spinning cinematic macro detail",
+        "private jet leather interior gold accents luxury close up",
+        "expensive champagne glass bubbles luxury pouring close up"
     ]
     
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
@@ -270,7 +271,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     
     master_bg_processed = "master_bg_unique.mp4"
     
-    # Ultra-vibrant hyper-gloss cinematic grade for maximum shine on diamonds and gold
+    # Ultra-vibrant hyper-gloss cinematic grade
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
@@ -360,4 +361,3 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-    
