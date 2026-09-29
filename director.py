@@ -29,7 +29,7 @@ OUTLINE_WIDTH = 7
 OUTLINE_COLOR = "black"
 
 def get_pexels_videos(topic, time_of_day, count=4):
-    """Fetches elite ultra-luxury POV interior clips (cars, watches, champagne, high-end lifestyle) without repeats."""
+    """Fetches elite, high-end luxury assets explicitly targeting Ferrari, Lamborghini, Rolls-Royce, private jets, and global wealth aesthetics without repeats."""
     if not PEXELS_KEY:
         return []
     
@@ -38,14 +38,14 @@ def get_pexels_videos(topic, time_of_day, count=4):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Ultra-luxury POV and aesthetic query pool matching elite lifestyle content
+    # Ultra-elite global luxury queries featuring named high-end supercars and elite environments
     query_pool = [
-        "luxury sports car interior steering wheel dashboard night neon city POV",
-        "wealthy lifestyle luxury watch hand steering wheel interior cinematic",
-        "luxury champagne glass cocktail bar high end restaurant ambience POV",
-        "stacks of cash money counting luxury lifestyle close up",
-        "luxury penthouse balcony view night city lights high end",
-        "designer handbag luxury shopping lifestyle close up POV"
+        "Ferrari driving fast cinematic highway night lights luxury",
+        "Lamborghini Aventador cinematic driving high end street luxury",
+        "Rolls Royce luxury car driving sleek high class evening city",
+        "private jet luxury travel tarmac cinematic high end lifestyle",
+        "luxury penthouse balcony view global metropolis skyscrapers night",
+        "wealthy lifestyle luxury watch expensive currency counting close up"
     ]
     
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
@@ -121,7 +121,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     if topic and len(topic.strip()) > 0:
         topic_instruction = f"CORE SUBJECT: Write the entire motivational speech strictly about: '{topic.strip()}'."
     else:
-        topic_instruction = "CORE SUBJECT: Choose an elite luxury motivation theme focusing on high-end success, wealth building, and silencing doubters."
+        topic_instruction = "CORE SUBJECT: Choose an elite luxury motivation theme focusing on high-end success, supreme wealth, and uncompromised power."
 
     unique_seed = random.randint(100000, 999999)
     
@@ -130,10 +130,10 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         f"Target Length: {target_words}.\n"
         f"{time_instruction}\n"
         f"Variation Seed: {unique_seed} (Ensure absolute uniqueness).\n\n"
-        "Write a powerful, ultra-luxury cinematic motivational speech structured into JSON.\n"
+        "Write a powerful, ultra-wealthy cinematic motivational speech structured into JSON.\n"
         "CRITICAL WRITING STYLE RULES:\n"
-        "1. NO AWKWARD FILLERS: Keep speech clean, articulate, high-status, and impactful.\n"
-        "2. 'hook': The opening sentence must grab absolute attention instantly.\n"
+        "1. NO AWKWARD FILLERS: Keep speech sharp, articulate, high-status, and completely professional.\n"
+        "2. 'hook': The opening sentence must hook the viewer immediately.\n"
         "3. 'speech_lines': Break down the rest of the speech into 3 to 6 short, punchy statements."
     )
 
@@ -212,7 +212,7 @@ async def generate_phrase_audio(text_content, filename, voice_profile):
     success = False
     for _ in range(3):
         try:
-            # Optimized pacing (+5% speed for punchy social media flow, balanced pitch)
+            # Clean speaking rate and pitch
             comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+5%", pitch="+0Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
@@ -271,12 +271,12 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
     
     master_bg_processed = "master_bg_unique.mp4"
     
-    # Cinematic color grade: Rich contrast and vibrant upscale for premium look
+    # Cinematic color grade tuned for high-contrast, wealthy visual tones
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
         "fps=30,"
-        "eq=brightness=0.05:contrast=1.22:saturation=1.30"
+        "eq=brightness=0.04:contrast=1.25:saturation=1.35"
     )
 
     if clip_paths:
