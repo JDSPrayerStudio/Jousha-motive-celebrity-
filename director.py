@@ -32,8 +32,8 @@ FONT_SIZE = 54
 OUTLINE_WIDTH = 7  
 OUTLINE_COLOR = "black"
 
-def get_pexels_videos(topic, time_of_day, count=3):
-    """Fetches unique vertical background videos matching roads, cars, walking, and topic without repeats."""
+def get_pexels_videos(topic, time_of_day, count=4):
+    """Fetches unique luxury background videos matching high-end assets without repeats."""
     if not PEXELS_KEY:
         return []
     
@@ -42,47 +42,51 @@ def get_pexels_videos(topic, time_of_day, count=3):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    clean_topic = topic if topic and len(topic.strip()) > 1 else "motivation"
+    clean_topic = topic if topic and len(topic.strip()) > 1 else "luxury success motivation"
     query_pool = [
-        f"cinematic car driving on highway road night city {clean_topic}",
-        f"person walking alone on city street dark moody {clean_topic}",
-        f"drone view moving forward down a dark highway road",
-        f"cinematic traffic lights motion blur fast pace life",
-        f"determined person walking forward urban street cinematic"
+        f"luxury supercars driving fast night city neon {clean_topic}",
+        f"modern luxury mansion glass architecture night view penthouse",
+        f"wealthy lifestyle stacks of cash currency counting luxury watch",
+        f"private jet tarmac night cinematic luxury travel",
+        f"luxury yacht cruising night lights water cinematic",
+        f"dark moody high-end sports car exhaust flame acceleration"
     ]
     
-    selected_query = random.choice(query_pool)
-    url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(selected_query)}&orientation=portrait&per_page=15"
+    # Shuffle or select diverse queries to ensure multi-clip variety
+    selected_queries = random.sample(query_pool, min(len(query_pool), count))
+    downloaded_paths = []
     
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            videos = data.get("videos", [])
-            if videos:
-                available_videos = filter_unused_pexels_clips(videos)
-                random.shuffle(available_videos)
-                
-                downloaded_paths = []
-                for i, v in enumerate(available_videos):
-                    if len(downloaded_paths) >= count:
-                        break
-                    video_files = v.get("video_files", [])
-                    if video_files:
-                        file_url = video_files[0]["link"]
-                        vid_path = f"pexels_bg_{i}_{random.randint(1000,9999)}.mp4"
-                        
-                        v_data = requests.get(file_url, stream=True)
-                        if v_data.status_code == 200:
-                            with open(vid_path, "wb") as f:
-                                for chunk in v_data.iter_content(chunk_size=1024):
-                                    f.write(chunk)
-                            if os.path.exists(vid_path) and os.path.getsize(vid_path) > 10000:
-                                downloaded_paths.append(vid_path)
-                return downloaded_paths
-    except Exception as e:
-        print(f"Pexels exception: {e}")
-    return []
+    for q_idx, selected_query in enumerate(selected_queries):
+        url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(selected_query)}&orientation=portrait&per_page=10"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                videos = data.get("videos", [])
+                if videos:
+                    available_videos = filter_unused_pexels_clips(videos)
+                    if not available_videos:
+                        available_videos = videos # fallback if history filter is empty
+                    random.shuffle(available_videos)
+                    
+                    for v in available_videos:
+                        video_files = v.get("video_files", [])
+                        if video_files:
+                            file_url = video_files[0]["link"]
+                            vid_path = f"pexels_bg_{q_idx}_{random.randint(1000,9999)}.mp4"
+                            
+                            v_data = requests.get(file_url, stream=True)
+                            if v_data.status_code == 200:
+                                with open(vid_path, "wb") as f:
+                                    for chunk in v_data.iter_content(chunk_size=1024):
+                                        f.write(chunk)
+                                if os.path.exists(vid_path) and os.path.getsize(vid_path) > 10000:
+                                    downloaded_paths.append(vid_path)
+                                    break
+        except Exception as e:
+            print(f"Pexels exception on query {selected_query}: {e}")
+            
+    return downloaded_paths
 
 def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str):
     if not GEMINI_KEY:
@@ -95,18 +99,16 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "15s": "25 to 35 words total",
         "20s": "45 to 55 words total",
         "25s": "55 to 65 words total",
-        "30s": "70 to 85 words total",
-        "60s": "130 to 150 words total",
-        "90s": "200 to 220 words total"
+        "30s": "70 to 85 words total"
     }
-    target_words = word_limits.get(duration_str, "70 to 85 words total")
+    target_words = word_limits.get(duration_str, "45 to 55 words total")
     
     tz_mapping = {
-        "Nigeria (WAT - Africa/Lagos)": "Africa/Lagos",
         "USA (EST - America/New_York)": "America/New_York",
-        "USA (PST - America/Los_Angeles)": "America/Los_Angeles"
+        "USA (PST - America/Los_Angeles)": "America/Los_Angeles",
+        "Nigeria (WAT - Africa/Lagos)": "Africa/Lagos"
     }
-    selected_tz_name = tz_mapping.get(audience_tz_str, "Africa/Lagos")
+    selected_tz_name = tz_mapping.get(audience_tz_str, "America/New_York")
     audience_time = datetime.now(ZoneInfo(selected_tz_name))
     
     day_name = audience_time.strftime("%A")
@@ -121,25 +123,24 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     else:
         time_instruction = "Do NOT mention any time of day, days of the week, dates, or years."
 
-    # Handle Topic logic precisely
     if topic and len(topic.strip()) > 0:
-        topic_instruction = f"CORE SUBJECT: You MUST write the entire motivational speech strictly about the topic: '{topic.strip()}'. Every line must anchor directly to this concept."
+        topic_instruction = f"CORE SUBJECT: Write the entire motivational speech strictly about: '{topic.strip()}'."
     else:
-        topic_instruction = "CORE SUBJECT: Choose a powerful viral motivational theme (such as relentless discipline, breaking past limits, or overcoming adversity)."
+        topic_instruction = "CORE SUBJECT: Choose a powerful high-end luxury motivation theme focusing on relentless winning, absolute focus, or success as the ultimate revenge."
 
-    # Inject a random variation seed so typing the same topic twice never repeats scripts
     unique_seed = random.randint(100000, 999999)
     
     prompt = (
         f"{topic_instruction}\n"
         f"Target Length: {target_words}.\n"
         f"{time_instruction}\n"
-        f"Variation Seed: {unique_seed} (Ensure a totally fresh angle, wording, and narrative structure different from standard templates).\n\n"
-        "Write a powerful, highly gripping, cinematic motivational speech structured into JSON.\n"
-        "CRITICAL RULES:\n"
-        "1. NO TEMPLATE RESTRICTIONS: Do not use rigid formulaic openings. Create a completely fresh, hard-hitting, raw hook that instantly grabs attention and forces viewers to keep watching.\n"
-        "2. 'hook': The opening sentence must be exceptionally striking and intense.\n"
-        "3. 'speech_lines': Break down the rest of the speech into 3 to 6 powerful, punchy sentences that flow seamlessly."
+        f"Variation Seed: {unique_seed} (Ensure absolute uniqueness).\n\n"
+        "Write a powerful, gritty, street-smart cinematic motivational speech structured into JSON.\n"
+        "CRITICAL WRITING STYLE RULES:\n"
+        "1. REAL HUMAN US STREET TONE: Write like a real creator talking off-the-cuff on US streets. Avoid stiff corporate AI wording or textbook essays.\n"
+        "2. NATURAL FILLERS & SLANG: Naturally integrate organic filler words and conversational markers where appropriate, such as 'bro', 'look', 'hmm', 'uh', or 'nah' to mimic authentic human brain processing and thinking flow.\n"
+        "3. 'hook': The opening sentence must be raw, punchy, and instantly grip attention.\n"
+        "4. 'speech_lines': Break down the rest of the speech into 3 to 6 powerful, short, punchy sentences."
     )
 
     response_schema = {
@@ -203,12 +204,21 @@ def get_audio_duration(filepath):
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return float(res.stdout.strip()) if res.stdout.strip() else 2.0
 
-async def generate_phrase_audio(text_content, filename):
+async def generate_phrase_audio(text_content, filename, voice_profile):
     import edge_tts
+    
+    voice_mapping = {
+        "Andrew (Deep Gritty US Male)": "en-US-AndrewNeural",
+        "Aria (Confident Cinematic Female)": "en-US-AriaNeural",
+        "Christopher (Authoritative US Male)": "en-US-ChristopherNeural",
+        "Guy (Smooth Street Motivation Male)": "en-US-GuyNeural"
+    }
+    selected_voice_id = voice_mapping.get(voice_profile, "en-US-AndrewNeural")
+    
     success = False
     for _ in range(3):
         try:
-            comm = edge_tts.Communicate(text_content, "en-US-AndrewNeural", rate="+0%", pitch="-1Hz")
+            comm = edge_tts.Communicate(text_content, selected_voice_id, rate="+0%", pitch="-2Hz")
             await comm.save(filename)
             if os.path.exists(filename) and os.path.getsize(filename) > 50:
                 success = True
@@ -220,7 +230,7 @@ async def generate_phrase_audio(text_content, filename):
         tts = gTTS(text=text_content, lang='en', slow=False)
         tts.save(filename)
 
-def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, output_filename="motivation_reel.mp4"):
+def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, voice_profile="Andrew (Deep Gritty US Male)", output_filename="motivation_reel.mp4"):
     script_data = generate_structured_script(topic, duration_str, time_of_day, audience_tz_str)
     
     hook_text = clean_text_formatting(script_data['hook'])
@@ -231,7 +241,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
 
     async def build_audio_tracks():
         for idx, text in enumerate(all_phrases):
-            await generate_phrase_audio(text, f"phrase_audio_{idx}.mp3")
+            await generate_phrase_audio(text, f"phrase_audio_{idx}.mp3", voice_profile)
 
     asyncio.run(build_audio_tracks())
 
@@ -261,9 +271,13 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
         "-i", audio_concat_txt, "-c", "copy", "final_voice_track.mp3"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    clip_paths = get_pexels_videos(topic, time_of_day, count=3)
+    # Fetch multiple luxury background clips depending on duration
+    clip_count = max(3, int(total_video_duration // 4) + 1)
+    clip_paths = get_pexels_videos(topic, time_of_day, count=clip_count)
     
     master_bg_processed = "master_bg_unique.mp4"
+    
+    # UNCHANGED FFPEG FILTER CHAIN TO BYPASS FACEBOOK UNORIGINAL CONTENT SCAN
     filter_fx = (
         "scale=1300:2300:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
@@ -273,9 +287,9 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
     )
 
     if clip_paths:
-        clip_target_dur = max(3.0, total_video_duration / len(clip_paths))
+        clip_target_dur = max(2.5, total_video_duration / len(clip_paths))
         processed_part_files = []
-        for i, clip_src in enumerate(clip_paths[:3]):
+        for i, clip_src in enumerate(clip_paths):
             part_file = f"bg_part_{i}.mp4"
             processed_part_files.append(part_file)
             subprocess.run([
@@ -342,6 +356,7 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
         "-shortest", output_filename
     ], check=True)
 
+    # Cleanup temp files
     for idx in range(len(all_phrases)):
         for ext in [".mp3", ".txt"]:
             fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
@@ -354,3 +369,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, ou
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
+    
