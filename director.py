@@ -52,7 +52,6 @@ def get_pexels_videos(topic, time_of_day, count=4):
         f"dark moody high-end sports car exhaust flame acceleration"
     ]
     
-    # Shuffle or select diverse queries to ensure multi-clip variety
     selected_queries = random.sample(query_pool, min(len(query_pool), count))
     downloaded_paths = []
     
@@ -66,7 +65,7 @@ def get_pexels_videos(topic, time_of_day, count=4):
                 if videos:
                     available_videos = filter_unused_pexels_clips(videos)
                     if not available_videos:
-                        available_videos = videos # fallback if history filter is empty
+                        available_videos = videos 
                     random.shuffle(available_videos)
                     
                     for v in available_videos:
@@ -271,7 +270,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         "-i", audio_concat_txt, "-c", "copy", "final_voice_track.mp3"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    # Fetch multiple luxury background clips depending on duration
     clip_count = max(3, int(total_video_duration // 4) + 1)
     clip_paths = get_pexels_videos(topic, time_of_day, count=clip_count)
     
@@ -356,7 +354,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         "-shortest", output_filename
     ], check=True)
 
-    # Cleanup temp files
     for idx in range(len(all_phrases)):
         for ext in [".mp3", ".txt"]:
             fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
@@ -369,4 +366,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-    
+        
