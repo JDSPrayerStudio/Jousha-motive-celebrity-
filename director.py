@@ -371,4 +371,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         os.remove("final_voice_track.mp3")
 
     return output_filename, full_script_text
-            
+                
