@@ -10,7 +10,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from google import genai
 from google.genai import types
-from history_manager import filter_unused_pexels_clips
 
 def get_secure_key(key_name):
     try:
@@ -28,6 +27,31 @@ FONT_SIZE = 54
 OUTLINE_WIDTH = 7  
 OUTLINE_COLOR = "black"
 
+# Persistent local history file to permanently stop video repetition across runs
+HISTORY_FILE = "used_pexels_ids.json"
+
+def load_used_pexels_ids():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_used_pexels_id(vid_id):
+    used = load_used_pexels_ids()
+    if vid_id not in used:
+        used.append(vid_id)
+        # Keep history capped at last 300 clips to prevent infinite bloat
+        if len(used) > 300:
+            used = used[-300:]
+        try:
+            with open(HISTORY_FILE, "w") as f:
+                json.dump(used, f)
+        except Exception:
+            pass
+
 def generate_dynamic_pexels_queries(script_lines, count=4):
     """Extracts hyper-specific visual queries from the script text 
     while blocking cheap elements and enforcing high-end aesthetic variety."""
@@ -38,7 +62,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
         f"Based on these script lines: '{combined_text}', generate {count} completely unique, "
         "high-end visual search queries for Pexels stock video.\n"
         "RULES:\n"
-        "1. Match the exact vibe of the text (e.g., if it talks about grit/grind, show intense focus, night driving, heavy machinery, or elite workspaces; if luxury, show hypercars or gold close-ups).\n"
+        "1. Match the exact vibe of the text (e.g., grit/grind -> intense focus, night driving, heavy machinery, elite workspaces; luxury -> hypercars, gold close-ups, penthouse views).\n"
         "2. ABSOLUTELY NO ordinary crowds, public transit, cheap clothing, or generic city traffic.\n"
         "3. Output ONLY a valid JSON list of strings, e.g., [\"query1\", \"query2\", \"query3\", \"query4\"]"
     )
@@ -58,12 +82,28 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
     except Exception as e:
         print(f"Dynamic query generation fallback: {e}")
         
-    return [
-        "cinematic dark moody supercar night driving",
-        "intense focus close up eyes determined gritty",
-        "heavy industry gold melting glowing fire sparks",
-        "luxury penthouse night skyline cinematic drone shot"
+    # Expanded, randomized fallback pools to prevent repetition on API failure
+    fallback_pools = [
+        [
+            "cinematic dark moody supercar night driving",
+            "intense focus close up eyes determined gritty",
+            "heavy industry gold melting glowing fire sparks",
+            "luxury penthouse night skyline cinematic drone shot"
+        ],
+        [
+            "dark gym weightlifting heavy iron sweat cinematic",
+            "coder hacker typing fast monitors dark room neon",
+            "private jet luxury lifestyle high altitude clouds",
+            "boxing training intense punching bag shadowboxing"
+        ],
+        [
+            "wall street stock exchange trading floor hustle",
+            "architect blueprint late night working coffee",
+            "fast motorcycle night city tunnel blur motion",
+            "dark moody storm clouds lightning cinematic slow motion"
+        ]
     ]
+    return random.choice(fallback_pools)
 
 def get_pexels_videos(script_lines, count=4):
     """Fetches fresh videos using script keywords and forces unique IDs 
@@ -78,25 +118,30 @@ def get_pexels_videos(script_lines, count=4):
     
     dynamic_queries = generate_dynamic_pexels_queries(script_lines, count=count)
     downloaded_paths = []
+    used_ids = load_used_pexels_ids()
     
     for q_idx, query in enumerate(dynamic_queries):
-        # Fetch up to 80 pages deep to maximize uniqueness and avoid repeat clips
-        url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(query)}&orientation=portrait&per_page=30&page={random.randint(1, 5)}"
+        # Increased pagination depth from 1-5 to 1-25 to dig deeper into Pexels catalogs
+        page_num = random.randint(1, 25)
+        url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(query)}&orientation=portrait&per_page=30&page={page_num}"
         try:
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json()
                 videos = data.get("videos", [])
                 if videos:
-                    # Filter out any video IDs that have already been used in previous history
-                    available_videos = filter_unused_pexels_clips(videos)
+                    # Filter out any video IDs that have already been logged as used
+                    available_videos = [v for v in videos if v.get("id") not in used_ids]
                     if not available_videos:
-                        available_videos = videos 
+                        available_videos = videos # Fallback if all page results were used
+                    
                     random.shuffle(available_videos)
                     
                     for v in available_videos:
+                        v_id = v.get("id")
                         video_files = v.get("video_files", [])
                         if video_files:
+                            # Prefer HD portrait files
                             file_url = video_files[0]["link"]
                             vid_path = f"pexels_bg_{q_idx}_{random.randint(10000,99999)}.mp4"
                             
@@ -107,6 +152,8 @@ def get_pexels_videos(script_lines, count=4):
                                         f.write(chunk)
                                 if os.path.exists(vid_path) and os.path.getsize(vid_path) > 10000:
                                     downloaded_paths.append(vid_path)
+                                    # Save to permanent history so it never gets reused
+                                    save_used_pexels_id(v_id)
                                     break
         except Exception as e:
             print(f"Pexels exception on query {query}: {e}")
@@ -151,7 +198,6 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
     if topic and len(topic.strip()) > 0:
         topic_instruction = f"CORE SUBJECT: Focus the speech on: '{topic.strip()}'."
     else:
-        # Broaden the rotation pool to cover success, mindset, risk, hard work, grinding, and bouncing back from failure
         rotation_themes = [
             "raw mindset, relentless grinding, and outworking everyone in the room",
             "taking massive risks when everyone else plays it safe",
@@ -172,7 +218,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "Write a powerful, high-retention motivational speech structured into JSON.\n"
         "CRITICAL WRITING STYLE RULES:\n"
         "1. THE HOOK: The first sentence ('hook') must be an aggressive, jaw-dropping pattern-interrupt statement within the first 1 to 2 seconds that forces viewers to stop scrolling immediately.\n"
-        "2. HUMAN TONE & SLANG: Write like a real, gritty human speaker talking straight to the camera. Use natural speech cadence, short pauses indicated by commas or ellipses, and occasional organic street-smart phrasing or slang (e.g., 'no cap', 'real talk', 'locked in', 'moving silent') where it fits naturally—don't overdo it, keep it authentic.\n"
+        "2. HUMAN TONE & SLANG: Write like a real, gritty human speaker talking straight to the camera. Use natural speech cadence, short pauses indicated by commas or ellipses, and occasional organic street-smart phrasing or slang where it fits naturally.\n"
         "3. 'speech_lines': Break down the rest of the speech into 3 to 5 raw, punchy statements."
     )
 
@@ -248,7 +294,6 @@ async def generate_phrase_audio(text_content, filename, voice_profile):
     }
     selected_voice_id = voice_mapping.get(voice_profile, "en-US-AndrewNeural")
     
-    # Adjusted rate and pitch parameters to allow a more natural, human cadence
     success = False
     for _ in range(3):
         try:
@@ -387,15 +432,21 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         "-shortest", output_filename
     ], check=True)
 
+    # Fixed syntax error in cleanup routine (changed invalid 'end:' to 'except Exception:')
     for idx in range(len(all_phrases)):
         for ext in [".mp3", ".txt"]:
             fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
             if os.path.exists(fpath):
                 try:
                     os.remove(fpath)
-                end:
+                except Exception:
                     pass
+                    
     if os.path.exists("final_voice_track.mp3"):
-        os.remove("final_voice_track.mp3")
+        try:
+            os.remove("final_voice_track.mp3")
+        except Exception:
+            pass
 
     return output_filename, full_script_text
+        
