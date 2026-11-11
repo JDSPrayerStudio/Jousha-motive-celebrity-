@@ -70,7 +70,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
 
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-3.8-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -236,8 +236,9 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "required": ["hook", "speech_lines"]
     }
 
-    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash-exp"]
+    models_to_try = ["gemini-3.8-flash"]
     
+    last_error = None
     for model_name in models_to_try:
         for attempt in range(2):
             try:
@@ -252,10 +253,11 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
                 if response and response.text:
                     return json.loads(response.text)
             except Exception as e:
+                last_error = e
                 print(f"Model {model_name} attempt {attempt} failed: {e}")
                 time.sleep(1)
                 
-    raise RuntimeError("Gemini models are experiencing high traffic. Please try again.")
+    raise RuntimeError(f"Real Gemini Error: {last_error}")
 
 def clean_text_formatting(text):
     import re
@@ -450,3 +452,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
             pass
 
     return output_filename, full_script_text
+        
