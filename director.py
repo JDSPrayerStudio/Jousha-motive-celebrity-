@@ -449,3 +449,5 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
             pass
 
     return output_filename, full_script_text
+
+
