@@ -1,5 +1,5 @@
-import streamlit as st
 import os
+import streamlit as st
 from director import create_motivation_reel
 
 # 1. Page Configuration
@@ -35,6 +35,15 @@ st.markdown(
 )
 
 st.write("Generate unique 9:16 motivational videos built to bypass Facebook unoriginal content filters.")
+
+# --- INJECT STREAMLIT SECRETS INTO ENVIRONMENT VARIABLES ---
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    if "PEXELS_API_KEY" in st.secrets:
+        os.environ["PEXELS_API_KEY"] = st.secrets["PEXELS_API_KEY"]
+except Exception:
+    pass # Fallback if running locally without secrets.toml
 
 # Check API Keys
 if not os.environ.get("GEMINI_API_KEY"):
@@ -134,5 +143,5 @@ if st.session_state.generated_video and os.path.exists(st.session_state.generate
             data=file,
             file_name="facebook_motivation_reel.mp4",
             mime="video/mp4"
-    )
-        
+        )
+    
