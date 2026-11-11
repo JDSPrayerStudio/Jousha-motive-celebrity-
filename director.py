@@ -1,4 +1,4 @@
-Import os
+import os
 import random
 import time
 import json
@@ -20,7 +20,7 @@ def get_secure_key(key_name):
     return os.environ.get(key_name)
 
 PEXELS_KEY = get_secure_key("PEXELS_API_KEY")
-GEMINI_KEY = get_secure_key("GEMINI_API_KEY")
+GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
 COLOR_BASE = "white"
 FONT_SIZE = 54  
@@ -55,7 +55,8 @@ def save_used_pexels_id(vid_id):
 def generate_dynamic_pexels_queries(script_lines, count=4):
     """Extracts hyper-specific visual queries from the script text 
     while blocking cheap elements and enforcing high-end aesthetic variety."""
-    client = genai.Client(api_key=GEMINI_KEY)
+    active_key = GEMINI_KEY or os.environ.get("GEMINI_API_KEY")
+    client = genai.Client(api_key=active_key) if active_key else genai.Client()
     
     combined_text = " ".join(script_lines)
     prompt = (
@@ -69,7 +70,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -161,10 +162,11 @@ def get_pexels_videos(script_lines, count=4):
     return downloaded_paths
 
 def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str):
-    if not GEMINI_KEY:
+    active_key = GEMINI_KEY or os.environ.get("GEMINI_API_KEY")
+    if not active_key:
         raise ValueError("GEMINI_KEY is missing from Streamlit secrets.")
 
-    client = genai.Client(api_key=GEMINI_KEY)
+    client = genai.Client(api_key=active_key)
     
     word_limits = {
         "10s": "15 to 20 words total",
@@ -234,7 +236,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "required": ["hook", "speech_lines"]
     }
 
-    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash-exp"]
     
     for model_name in models_to_try:
         for attempt in range(2):
@@ -432,7 +434,6 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
         "-shortest", output_filename
     ], check=True)
 
-    # Fixed syntax error in cleanup routine (changed invalid 'end:' to 'except Exception:')
     for idx in range(len(all_phrases)):
         for ext in [".mp3", ".txt"]:
             fpath = f"phrase_audio_{idx}{ext}" if ext == ".mp3" else f"phrase_text_{idx}{ext}"
@@ -449,5 +450,3 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
             pass
 
     return output_filename, full_script_text
-
-
