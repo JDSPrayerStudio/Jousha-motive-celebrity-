@@ -70,7 +70,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -224,7 +224,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "3. 'speech_lines': Break down the rest of the speech into 3 to 5 raw, punchy statements."
     )
 
-    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
     
     last_error = None
     for model_name in models_to_try:
