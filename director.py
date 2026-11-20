@@ -70,7 +70,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
 
     try:
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=""gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
