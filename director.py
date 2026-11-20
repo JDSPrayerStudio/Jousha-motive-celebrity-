@@ -219,7 +219,7 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         "}"
     )
 
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro"]
+    models_to_try = ["gemini-3.6-flash", "gemini-3.8-flash"]
     
     last_error = None
     for model_name in models_to_try:
