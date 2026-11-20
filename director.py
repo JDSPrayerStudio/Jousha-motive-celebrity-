@@ -43,7 +43,6 @@ def save_used_pexels_id(vid_id):
     used = load_used_pexels_ids()
     if vid_id not in used:
         used.append(vid_id)
-        # Keep history capped at last 300 clips to prevent infinite bloat
         if len(used) > 300:
             used = used[-300:]
         try:
@@ -53,8 +52,6 @@ def save_used_pexels_id(vid_id):
             pass
 
 def generate_dynamic_pexels_queries(script_lines, count=4):
-    """Extracts hyper-specific visual queries from the script text 
-    while blocking cheap elements and enforcing high-end aesthetic variety."""
     active_key = GEMINI_KEY or os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=active_key) if active_key else genai.Client()
     
@@ -70,7 +67,7 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
 
     try:
         response = client.models.generate_content(
-            model=""gemini-1.5-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -83,7 +80,6 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
     except Exception as e:
         print(f"Dynamic query generation fallback: {e}")
         
-    # Expanded, randomized fallback pools to prevent repetition on API failure
     fallback_pools = [
         [
             "cinematic dark moody supercar night driving",
@@ -107,8 +103,6 @@ def generate_dynamic_pexels_queries(script_lines, count=4):
     return random.choice(fallback_pools)
 
 def get_pexels_videos(script_lines, count=4):
-    """Fetches fresh videos using script keywords and forces unique IDs 
-    so backgrounds never repeat across video generations."""
     if not PEXELS_KEY:
         return []
     
@@ -122,7 +116,6 @@ def get_pexels_videos(script_lines, count=4):
     used_ids = load_used_pexels_ids()
     
     for q_idx, query in enumerate(dynamic_queries):
-        # Increased pagination depth from 1-5 to 1-25 to dig deeper into Pexels catalogs
         page_num = random.randint(1, 25)
         url = f"https://api.pexels.com/v1/videos/search?query={requests.utils.quote(query)}&orientation=portrait&per_page=30&page={page_num}"
         try:
@@ -131,10 +124,9 @@ def get_pexels_videos(script_lines, count=4):
                 data = response.json()
                 videos = data.get("videos", [])
                 if videos:
-                    # Filter out any video IDs that have already been logged as used
                     available_videos = [v for v in videos if v.get("id") not in used_ids]
                     if not available_videos:
-                        available_videos = videos # Fallback if all page results were used
+                        available_videos = videos
                     
                     random.shuffle(available_videos)
                     
@@ -142,7 +134,6 @@ def get_pexels_videos(script_lines, count=4):
                         v_id = v.get("id")
                         video_files = v.get("video_files", [])
                         if video_files:
-                            # Prefer HD portrait files
                             file_url = video_files[0]["link"]
                             vid_path = f"pexels_bg_{q_idx}_{random.randint(10000,99999)}.mp4"
                             
@@ -153,7 +144,6 @@ def get_pexels_videos(script_lines, count=4):
                                         f.write(chunk)
                                 if os.path.exists(vid_path) and os.path.getsize(vid_path) > 10000:
                                     downloaded_paths.append(vid_path)
-                                    # Save to permanent history so it never gets reused
                                     save_used_pexels_id(v_id)
                                     break
         except Exception as e:
@@ -217,26 +207,19 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
         f"Target Length: {target_words}.\n"
         f"{time_instruction}\n"
         f"Variation Seed: {unique_seed} (Ensure complete script uniqueness).\n\n"
-        "Write a powerful, high-retention motivational speech structured into JSON.\n"
+        "Write a powerful, high-retention motivational speech.\n"
         "CRITICAL WRITING STYLE RULES:\n"
         "1. THE HOOK: The first sentence ('hook') must be an aggressive, jaw-dropping pattern-interrupt statement within the first 1 to 2 seconds that forces viewers to stop scrolling immediately.\n"
         "2. HUMAN TONE & SLANG: Write like a real, gritty human speaker talking straight to the camera. Use natural speech cadence, short pauses indicated by commas or ellipses, and occasional organic street-smart phrasing or slang where it fits naturally.\n"
-        "3. 'speech_lines': Break down the rest of the speech into 3 to 5 raw, punchy statements."
+        "3. Break down the rest of the speech into 3 to 5 raw, punchy statements.\n\n"
+        "You MUST output your response strictly as a JSON object with this exact format:\n"
+        "{\n"
+        '  "hook": "Your hook sentence here",\n'
+        '  "speech_lines": ["line 1", "line 2", "line 3"]\n'
+        "}"
     )
 
-    response_schema = {
-        "type": "OBJECT",
-        "properties": {
-            "hook": {"type": "STRING"},
-            "speech_lines": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"}
-            }
-        },
-        "required": ["hook", "speech_lines"]
-    }
-
-    models_to_try = ["gemini-3.8-flash"]
+    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro"]
     
     last_error = None
     for model_name in models_to_try:
@@ -244,14 +227,15 @@ def generate_structured_script(topic, duration_str, time_of_day, audience_tz_str
             try:
                 response = client.models.generate_content(
                     model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=response_schema
-                    )
+                    contents=prompt
                 )
                 if response and response.text:
-                    return json.loads(response.text)
+                    clean_txt = response.text.strip()
+                    if clean_txt.startswith("```json"):
+                        clean_txt = clean_txt[7:]
+                    if clean_txt.endswith("```"):
+                        clean_txt = clean_txt[:-3]
+                    return json.loads(clean_txt.strip())
             except Exception as e:
                 last_error = e
                 print(f"Model {model_name} attempt {attempt} failed: {e}")
@@ -452,4 +436,4 @@ def create_motivation_reel(topic, duration_str, time_of_day, audience_tz_str, vo
             pass
 
     return output_filename, full_script_text
-        
+    
